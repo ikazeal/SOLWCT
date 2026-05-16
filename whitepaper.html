@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Whitepaper</title>
+    <meta name="description" content="WorldCup Token (WCT) · Whitepaper, rules, points, and rewards." />
+    <meta name="theme-color" content="#070411" />
+    <meta name="wct-backend" content="" />
+    <meta name="wct-treasury" content="0x59cdafe58de6cdabf46900aff2d431d98e1c8503" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css?v=20260516" />
+  </head>
+  <body data-page="whitepaper">
+    <div class="bg">
+      <div class="bg__vignette"></div>
+      <div class="bg__lights"></div>
+      <div class="bg__sparkles"></div>
+    </div>
+
+    <header class="topbar">
+      <div class="container topbar__inner">
+        <a class="brand" href="./index.html" aria-label="WorldCup Token">
+          <span class="brand__mark" aria-hidden="true">
+            <img class="brand__markImg" src="./hero-bg.png.png" alt="" loading="eager" decoding="async" />
+          </span>
+          <span class="brand__text">
+            <span class="brand__title">WORLDCUP</span>
+            <span class="brand__subtitle">TOKEN</span>
+          </span>
+        </a>
+
+        <div class="topbar__actions">
+          <button id="langToggleBtn" class="btn btn--ghost btn--lang" type="button" aria-label="Language">
+            <span id="langBtnLabel">EN</span>
+          </button>
+          <a class="iconBtn" href="https://x.com/WCTFLAP" target="_blank" rel="noreferrer" aria-label="Twitter / X">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M18.9 3H22l-6.8 7.8L23.1 21H17l-4.8-6.2L6.8 21H3.7l7.3-8.4L1 3h6.3l4.3 5.6L18.9 3Z" fill="currentColor"/>
+            </svg>
+          </a>
+          <a class="btn btn--ghost" href="./index.html#home" data-i18n="nav.home">HOME</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="container sectionPad">
+        <div class="card card--whitepaper">
+          <div class="cardHead cardHead--stack">
+            <div class="cardHead__title" data-i18n="nav.whitepaper">WHITEPAPER</div>
+            <div class="cardHead__hint wpMeta">
+              <span>Version 1.0 (Draft)</span>
+              <span class="wpDot"></span>
+              <span>Last updated: 2026-05-17</span>
+            </div>
+          </div>
+
+          <div class="whitepaperBody">
+            <div class="wpLang wpLang--zh">
+              <div class="wpContent">
+                <h1>WorldCup Token（WCT）白皮书（正式版草案）</h1>
+                <p>本白皮书用于说明 WCT 产品的目标、功能、积分竞猜机制、奖池展示口径与风险提示。本文件仅为信息披露与产品说明，不构成任何要约、招揽、投资建议、法律意见或税务意见。</p>
+
+                <div class="wpToc">
+                  <div class="wpToc__title">目录</div>
+                  <div class="wpToc__links">
+                    <a class="wpToc__link" href="#zh-disclaimer">0. 重要提示</a>
+                    <a class="wpToc__link" href="#zh-overview">1. 项目概述</a>
+                    <a class="wpToc__link" href="#zh-definitions">2. 术语与定义</a>
+                    <a class="wpToc__link" href="#zh-product">3. 产品形态与数据来源</a>
+                    <a class="wpToc__link" href="#zh-points">4. 积分系统</a>
+                    <a class="wpToc__link" href="#zh-betting">5. 竞猜规则</a>
+                    <a class="wpToc__link" href="#zh-settlement">6. 结算与分配</a>
+                    <a class="wpToc__link" href="#zh-leaderboard">7. 排行榜口径</a>
+                    <a class="wpToc__link" href="#zh-prize">8. 奖池与获奖机制</a>
+                    <a class="wpToc__link" href="#zh-compliance">9. 合规与法律风险提示</a>
+                    <a class="wpToc__link" href="#zh-risk">10. 风险因素</a>
+                    <a class="wpToc__link" href="#zh-liability">11. 免责声明与责任限制</a>
+                  </div>
+                </div>
+
+                <h2 id="zh-disclaimer">0. 重要提示（必读）</h2>
+                <ul>
+                  <li><b>非投资建议</b>：WCT 及相关页面内容不构成投资建议、财务建议或任何收益承诺。</li>
+                  <li><b>高风险</b>：加密资产价格波动剧烈，可能归零。请仅在可承受损失范围内参与。</li>
+                  <li><b>合规与限制</b>：你有义务确认你所在地的法律允许你访问与使用本产品。我们可能对部分国家/地区或“受限人员”限制访问或服务。</li>
+                  <li><b>年龄要求</b>：你应为法定成年人（至少 18 岁或你所在地法定成年年龄）。</li>
+                  <li><b>技术风险</b>：智能合约、钱包、浏览器、RPC、数据源可能发生故障、攻击或变更，导致数据错误或资产损失。</li>
+                </ul>
+
+                <h2 id="zh-overview">1. 项目概述</h2>
+                <p>WCT 是围绕赛事竞猜与社区互动构建的代币化产品。我们通过“积分竞猜 + 排行榜 + 奖励机制”的组合，为社区提供可视化、可参与、可复盘的赛季玩法。</p>
+
+                <h2 id="zh-definitions">2. 术语与定义</h2>
+                <ul>
+                  <li><b>WCT</b>：WorldCup Token，部署在 BNB Smart Chain 的代币。</li>
+                  <li><b>积分</b>：用于竞猜与结算计算的计量单位，分为基础积分与持仓额外积分。积分不等同于法币或任何法定货币，不应被理解为可兑付债务或收益凭证。</li>
+                  <li><b>排行榜收益积分</b>：仅统计竞猜胜利产生的“额外收益”（不含本金返还与持仓额外积分）。</li>
+                  <li><b>奖池（BNB）</b>：用于活动奖励的 BNB 资金池。页面展示口径为“奖池地址的链上 BNB 余额”。</li>
+                </ul>
+
+                <h2 id="zh-product">3. 产品形态与数据来源</h2>
+                <h3>3.1 当前实现形态</h3>
+                <ul>
+                  <li><b>前端站点</b>：用于展示赛程、竞猜交互、排行榜与奖励信息。</li>
+                  <li><b>存储模式</b>：可运行于“本地演示存储（浏览器 localStorage）”或“后端存储（API + 服务器持久化）”。具体以部署配置为准。</li>
+                  <li><b>链上读取</b>：页面会通过 BSC RPC 读取合约与奖池地址数据（例如奖池地址 BNB 余额）。</li>
+                </ul>
+
+                <h3>3.2 赛程与比赛结果来源</h3>
+                <ul>
+                  <li>赛程优先读取站点内的 <b>schedule.json</b>。</li>
+                  <li>比赛结果可从第三方公开页面抓取并解析（存在结构变动导致失效的风险）。如数据源变更，以站点公告或更新后的实现为准。</li>
+                </ul>
+
+                <h2 id="zh-points">4. 积分系统</h2>
+                <h3>4.1 基础积分</h3>
+                <ul>
+                  <li><b>初始化</b>：钱包首次连接后获得 <b>5000</b> 基础积分。</li>
+                  <li><b>用途</b>：用于下注本金、结算返还与收益分配计算。</li>
+                </ul>
+
+                <h3 id="zh-bonus">4.2 WCT 持仓额外积分（不计入排行榜）</h3>
+                <p>系统可根据钱包内 WCT 持仓自动计算“额外积分”。该部分：</p>
+                <ul>
+                  <li>可用于下注本金（优先消耗）。</li>
+                  <li><b>不计入排行榜</b>，避免因持仓导致排名失真。</li>
+                  <li>随持仓变化自动调整（定期刷新钱包余额）。</li>
+                </ul>
+                <p><b>计算规则（阶梯）</b>：</p>
+                <ul>
+                  <li>持有 ≥ 10,000,000 WCT：额外积分 = 150</li>
+                  <li>持有 ≥ 5,000,000 WCT：额外积分 = 70</li>
+                  <li>其他：每 100,000 WCT 额外积分 = 10（向下取整）</li>
+                </ul>
+
+                <h2 id="zh-betting">5. 竞猜规则</h2>
+                <ul>
+                  <li><b>下注范围</b>：单场最低 100 分，最高 500 分。</li>
+                  <li><b>封盘规则</b>：比赛开始前 <b>5 分钟</b> 停止下注。</li>
+                  <li><b>下注限制</b>：同一钱包同一场比赛仅可下注一次。</li>
+                  <li><b>可用积分</b>：基础积分 +（持仓额外积分 - 已使用额外积分）。下注时先消耗额外积分，再消耗基础积分。</li>
+                </ul>
+
+                <h2 id="zh-settlement">6. 结算与分配</h2>
+                <p>每场比赛形成 3 个选项奖池：主胜 / 平局 / 客胜。结算规则：</p>
+                <ul>
+                  <li><b>平局</b>：所有下注者退回本金（不产生收益积分）。</li>
+                  <li><b>非平局</b>：胜者按其下注占胜方总注的比例，瓜分败方奖池。</li>
+                  <li><b>收益积分</b>：胜者获得的“额外收益”= 结算总返还 - 本金。</li>
+                </ul>
+
+                <h2 id="zh-leaderboard">7. 排行榜口径（仅计算押注收益）</h2>
+                <ul>
+                  <li><b>计分来源</b>：仅统计每场胜利结算产生的“额外收益积分”。</li>
+                  <li><b>不计入</b>：基础积分本金返还、WCT 持仓额外积分、平局退回本金。</li>
+                </ul>
+
+                <h2 id="zh-prize">8. 奖池展示与获奖机制</h2>
+                <h3>8.1 奖池展示口径（链上同步）</h3>
+                <ul>
+                  <li><b>奖池地址</b>：0x59cdafe58de6cdabf46900aff2d431d98e1c8503</li>
+                  <li><b>展示口径</b>：页面显示该地址在 BNB Smart Chain 上的 <b>BNB 余额</b>（通过公开 RPC 读取）。</li>
+                  <li><b>重要说明</b>：奖池余额不代表必然发放额度或必然收益，具体发放以每期活动规则与公告为准。</li>
+                </ul>
+
+                <h3>8.2 获奖机制（Top 5）</h3>
+                <p>每期活动形成“总奖池”，用于排行榜奖励与生态增长。排行榜按“押注收益积分”排名，最终排名前 5 名可获得奖池奖励。</p>
+                <ul>
+                  <li>第 1 名：总奖池的 40%</li>
+                  <li>第 2 名：总奖池的 20%</li>
+                  <li>第 3 名：总奖池的 10%</li>
+                  <li>第 4 名：总奖池的 5%</li>
+                  <li>第 5 名：总奖池的 5%</li>
+                </ul>
+                <p><b>剩余 20%</b>：用于活动营销与“每期比赛押中额外奖励”。具体发放时间、资格与规则以每期活动公告为准。</p>
+
+                <h2 id="zh-compliance">9. 合规与法律风险提示</h2>
+                <p>监管与法律环境可能因司法辖区而异，且可能快速变化。以下内容仅为风险提示，不构成法律意见。</p>
+                <ul>
+                  <li><b>受限人员</b>：若你所在国家/地区禁止或限制加密资产交易、竞猜、抽奖或类似活动，你不得使用本产品。</li>
+                  <li><b>制裁与合规</b>：受制裁、限制或黑名单的个人/实体不得使用本产品。</li>
+                  <li><b>无要约</b>：本白皮书不构成证券、衍生品或任何受监管金融产品的发行要约或招揽。</li>
+                  <li><b>税务</b>：你可能需要就持币、交易、收益或奖励承担税务申报义务。请咨询专业人士。</li>
+                </ul>
+
+                <h2 id="zh-risk">10. 风险因素（非穷尽）</h2>
+                <ul>
+                  <li><b>价格与流动性风险</b>：WCT 可能出现极端波动、流动性枯竭与滑点风险。</li>
+                  <li><b>合约与安全风险</b>：合约漏洞、依赖组件漏洞、前端被篡改、钱包被盗均可能导致损失。</li>
+                  <li><b>数据源风险</b>：第三方赛果/赛程来源可能变更、延迟或错误，导致结算偏差。</li>
+                  <li><b>基础设施风险</b>：RPC 不可用、网络拥堵、链上重组等可能影响读取与交互。</li>
+                  <li><b>运营风险</b>：活动规则、奖池发放、封盘/结算时间窗口可能因运营需要调整。</li>
+                  <li><b>监管风险</b>：法规变化可能导致产品需限制地区、增加合规流程或停止服务。</li>
+                </ul>
+
+                <h2 id="zh-liability">11. 免责声明与责任限制</h2>
+                <ul>
+                  <li>本产品按“现状”提供，不提供任何明示或默示保证。</li>
+                  <li>在法律允许的最大范围内，任何因使用或无法使用本产品造成的损失（含间接损失、利润损失、数据损失）均不承担责任。</li>
+                  <li>我们保留在不另行通知的情况下更新本白皮书、调整参数、变更数据源或停止服务的权利。</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="wpLang wpLang--en">
+              <div class="wpContent">
+                <h1>WorldCup Token (WCT) Whitepaper (Formal Draft)</h1>
+                <p>This whitepaper describes the WCT product objectives, points-based prediction mechanics, prize pool display logic, and key risk disclosures. This document is informational only and does not constitute an offer, solicitation, investment advice, legal advice, or tax advice.</p>
+
+                <div class="wpToc">
+                  <div class="wpToc__title">Contents</div>
+                  <div class="wpToc__links">
+                    <a class="wpToc__link" href="#en-disclaimer">0. Important Notice</a>
+                    <a class="wpToc__link" href="#en-overview">1. Overview</a>
+                    <a class="wpToc__link" href="#en-definitions">2. Definitions</a>
+                    <a class="wpToc__link" href="#en-product">3. Architecture & Data Sources</a>
+                    <a class="wpToc__link" href="#en-points">4. Points System</a>
+                    <a class="wpToc__link" href="#en-betting">5. Prediction Rules</a>
+                    <a class="wpToc__link" href="#en-settlement">6. Settlement</a>
+                    <a class="wpToc__link" href="#en-leaderboard">7. Leaderboard</a>
+                    <a class="wpToc__link" href="#en-prize">8. Prize Pool & Winners</a>
+                    <a class="wpToc__link" href="#en-compliance">9. Compliance</a>
+                    <a class="wpToc__link" href="#en-risk">10. Risk Factors</a>
+                    <a class="wpToc__link" href="#en-liability">11. Disclaimer</a>
+                  </div>
+                </div>
+
+                <h2 id="en-disclaimer">0. Important Notice</h2>
+                <ul>
+                  <li><b>No investment advice</b>: nothing in this whitepaper or the website is investment, financial, or legal advice, and no returns are guaranteed.</li>
+                  <li><b>High risk</b>: crypto assets are highly volatile and may lose all value.</li>
+                  <li><b>Compliance</b>: you must ensure access and use are legal in your jurisdiction. The project may restrict access for certain jurisdictions or “Prohibited Persons”.</li>
+                  <li><b>Age</b>: you must be a legal adult (at least 18 years old, or the age of majority in your jurisdiction).</li>
+                  <li><b>Technology risk</b>: smart contracts, wallets, RPC endpoints, and third-party data sources can fail or be attacked, leading to incorrect data or losses.</li>
+                </ul>
+
+                <h2 id="en-overview">1. Overview</h2>
+                <p>WCT is a tokenized product built around match predictions and community participation. The system combines points-based predictions, leaderboards, and campaign rewards to create a season-style community experience.</p>
+
+                <h2 id="en-definitions">2. Definitions</h2>
+                <ul>
+                  <li><b>WCT</b>: WorldCup Token deployed on BNB Smart Chain.</li>
+                  <li><b>Points</b>: a unit of account used for predictions and settlement calculations. Points are not fiat money and should not be interpreted as a redeemable claim, debt, or guaranteed benefit.</li>
+                  <li><b>Profit points (leaderboard)</b>: only the incremental profit generated from winning settlements (excluding principal refunds and holding bonus points).</li>
+                  <li><b>Prize pool (BNB)</b>: BNB funds intended for campaign rewards. The website displays the on-chain BNB balance of a designated prize pool address.</li>
+                </ul>
+
+                <h2 id="en-product">3. Product Architecture & Data Sources</h2>
+                <h3>3.1 Implementation Modes</h3>
+                <ul>
+                  <li><b>Front-end</b>: displays fixtures, prediction UI, leaderboard, and rewards.</li>
+                  <li><b>Storage</b>: may run in a local demo mode (browser localStorage) or a server-backed mode (API + persistent storage), depending on deployment configuration.</li>
+                  <li><b>On-chain reads</b>: the website reads on-chain data via public BSC RPC endpoints (e.g., prize pool BNB balance).</li>
+                </ul>
+
+                <h3>3.2 Fixtures & Results</h3>
+                <ul>
+                  <li>Fixtures are loaded from <b>schedule.json</b> when available.</li>
+                  <li>Match results may be parsed from third-party public sources, which can change without notice and may cause settlement discrepancies.</li>
+                </ul>
+
+                <h2 id="en-points">4. Points System</h2>
+                <h3>4.1 Base Points</h3>
+                <ul>
+                  <li><b>Initialization</b>: a wallet receives <b>5000</b> base points on first connect.</li>
+                  <li><b>Usage</b>: used as prediction stake and for settlement distribution calculations.</li>
+                </ul>
+
+                <h3 id="en-bonus">4.2 WCT Holding Bonus Points (Excluded from Leaderboard)</h3>
+                <p>To incentivize holding WCT, the system may compute bonus points automatically from the wallet’s WCT balance. Bonus points:</p>
+                <ul>
+                  <li>Can be used as prediction stake (consumed first).</li>
+                  <li>Are <b>excluded</b> from the leaderboard to avoid distorted rankings.</li>
+                  <li>Adjust automatically as holdings change (periodic balance refresh).</li>
+                </ul>
+                <p><b>Tiered rule</b>:</p>
+                <ul>
+                  <li>Hold ≥ 10,000,000 WCT: bonus points = 150</li>
+                  <li>Hold ≥ 5,000,000 WCT: bonus points = 70</li>
+                  <li>Otherwise: +10 points per 100,000 WCT (floored)</li>
+                </ul>
+
+                <h2 id="en-betting">5. Prediction Rules</h2>
+                <ul>
+                  <li><b>Stake range</b>: 100–500 points per match.</li>
+                  <li><b>Betting close</b>: betting closes <b>5 minutes</b> before kickoff.</li>
+                  <li><b>One bet per match</b>: one wallet can submit only one bet per match.</li>
+                  <li><b>Available points</b>: base points + (computed bonus - bonus spent). Bonus is consumed first, then base points.</li>
+                </ul>
+
+                <h2 id="en-settlement">6. Settlement & Distribution</h2>
+                <p>Each match has three pools (Home / Draw / Away). Settlement rules:</p>
+                <ul>
+                  <li><b>Draw</b>: everyone receives principal back (no profit points).</li>
+                  <li><b>Non-draw</b>: winners receive principal plus a proportional share of the losing pool.</li>
+                  <li><b>Profit points</b>: winners’ “extra profit” = total payout - principal.</li>
+                </ul>
+
+                <h2 id="en-leaderboard">7. Leaderboard Accounting (Profit Only)</h2>
+                <ul>
+                  <li><b>Included</b>: only profit points generated from winning settlements.</li>
+                  <li><b>Excluded</b>: principal returns, holding bonus points, and draw refunds.</li>
+                </ul>
+
+                <h2 id="en-prize">8. Prize Pool Display & Winner Mechanism</h2>
+                <h3>8.1 On-chain prize pool display</h3>
+                <ul>
+                  <li><b>Prize pool address</b>: 0x59cdafe58de6cdabf46900aff2d431d98e1c8503</li>
+                  <li><b>Display logic</b>: the website displays the <b>on-chain BNB balance</b> of this address (read via public BSC RPC).</li>
+                  <li><b>Important</b>: the displayed balance is not a promise of payout. Actual distribution is determined by each campaign’s published rules.</li>
+                </ul>
+
+                <h3>8.2 Winner mechanism (Top 5)</h3>
+                <p>Each campaign period forms a “total prize pool” used for leaderboard rewards and ecosystem growth. The leaderboard is ranked by profit points, and the top 5 wallets receive prize pool rewards.</p>
+                <ul>
+                  <li>Rank #1: 40% of the total prize pool</li>
+                  <li>Rank #2: 20% of the total prize pool</li>
+                  <li>Rank #3: 10% of the total prize pool</li>
+                  <li>Rank #4: 5% of the total prize pool</li>
+                  <li>Rank #5: 5% of the total prize pool</li>
+                </ul>
+                <p><b>Remaining 20%</b>: used for marketing campaigns and per-match extra rewards. Timing, eligibility, and exact rules will be announced per campaign.</p>
+
+                <h2 id="en-compliance">9. Compliance & Legal Risk Disclosures</h2>
+                <p>Regulatory requirements vary by jurisdiction and can change rapidly. This section is for risk disclosure only and is not legal advice.</p>
+                <ul>
+                  <li><b>Prohibited Persons</b>: if your jurisdiction prohibits or restricts crypto trading, predictions, prize campaigns, or similar activities, you must not use this product.</li>
+                  <li><b>Sanctions</b>: sanctioned or restricted persons/entities must not use the product.</li>
+                  <li><b>No offering</b>: this whitepaper does not constitute an offering of securities, derivatives, or any regulated financial product.</li>
+                  <li><b>Tax</b>: you may have reporting obligations related to holding, trading, winnings, or rewards. Seek professional advice.</li>
+                </ul>
+
+                <h2 id="en-risk">10. Risk Factors (Non-exhaustive)</h2>
+                <ul>
+                  <li><b>Market risk</b>: price volatility and liquidity risks, including severe slippage or total loss.</li>
+                  <li><b>Security risk</b>: contract bugs, dependency vulnerabilities, phishing, and wallet compromise.</li>
+                  <li><b>Data risk</b>: third-party fixtures/results sources can be delayed, changed, or incorrect.</li>
+                  <li><b>Infrastructure risk</b>: RPC outages, network congestion, or chain reorgs may impact reads and interactions.</li>
+                  <li><b>Operational risk</b>: campaign rules and parameters may change for operational reasons.</li>
+                  <li><b>Regulatory risk</b>: legal changes may require restrictions, additional compliance procedures, or shutdown.</li>
+                </ul>
+
+                <h2 id="en-liability">11. Disclaimer & Limitation of Liability</h2>
+                <ul>
+                  <li>The product is provided “as is” without warranties of any kind.</li>
+                  <li>To the maximum extent permitted by law, the project shall not be liable for any losses arising from use or inability to use the product (including indirect, consequential, or data losses).</li>
+                  <li>The project may update this whitepaper, adjust parameters, change data sources, or discontinue services at any time without prior notice.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="toastHost" id="toastHost" aria-live="polite" aria-relevant="additions"></div>
+    <script src="./app.js?v=20260516"></script>
+  </body>
+</html>

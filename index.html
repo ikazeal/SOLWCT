@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WorldCup Token</title>
+    <meta name="description" content="WorldCup Token (WCT) · Predict matches, compete on leaderboard, and earn rewards." />
+    <meta name="theme-color" content="#070411" />
+    <meta name="wct-backend" content="" />
+    <meta name="wct-treasury" content="0x59cdafe58de6cdabf46900aff2d431d98e1c8503" />
+    <meta property="og:title" content="WorldCup Token" />
+    <meta property="og:description" content="Predict matches, compete, and earn rewards." />
+    <meta property="og:type" content="website" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css?v=20260516" />
+  </head>
+  <body>
+    <div class="bg">
+      <div class="bg__vignette"></div>
+      <div class="bg__lights"></div>
+      <div class="bg__sparkles"></div>
+    </div>
+
+    <header class="topbar">
+      <div class="container topbar__inner">
+        <a class="brand" href="#home" aria-label="WorldCup Token">
+          <span class="brand__mark" aria-hidden="true">
+            <img class="brand__markImg" src="./hero-bg.png.png" alt="" loading="eager" decoding="async" />
+          </span>
+          <span class="brand__text">
+            <span class="brand__title">WORLDCUP</span>
+            <span class="brand__subtitle">TOKEN</span>
+          </span>
+        </a>
+
+        <nav class="nav" aria-label="Primary">
+          <a class="nav__link is-active" href="#home" data-i18n="nav.home">HOME</a>
+          <a class="nav__link" href="#matches" data-i18n="nav.matches">MATCHES</a>
+          <a class="nav__link" href="#prediction" data-i18n="nav.prediction">PREDICTION</a>
+          <a class="nav__link" href="#leaderboard" data-i18n="nav.leaderboard">LEADERBOARD</a>
+          <a class="nav__link" href="#rewards" data-i18n="nav.rewards">REWARDS</a>
+          <a class="nav__link" href="./whitepaper.html" data-i18n="nav.whitepaper">WHITEPAPER</a>
+        </nav>
+
+        <div class="topbar__actions">
+          <button id="langToggleBtn" class="btn btn--ghost btn--lang" type="button" aria-label="Language">
+            <span id="langBtnLabel">EN</span>
+          </button>
+          <a class="iconBtn" href="https://x.com/WCTFLAP" target="_blank" rel="noreferrer" aria-label="Twitter / X">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M18.9 3H22l-6.8 7.8L23.1 21H17l-4.8-6.2L6.8 21H3.7l7.3-8.4L1 3h6.3l4.3 5.6L18.9 3Z" fill="currentColor"/>
+            </svg>
+          </a>
+          <div id="pointsPill" class="pointsPill" hidden>
+            <span class="pointsPill__label" data-i18n="points.label">POINTS</span>
+            <span id="pointsValue" class="pointsPill__value">0</span>
+          </div>
+          <button id="connectWalletBtn" class="btn btn--ghost" type="button">
+            <span class="btn__icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 7.5V6.25C21 5.01 19.99 4 18.75 4H5.25C4.01 4 3 5.01 3 6.25V17.75C3 18.99 4.01 20 5.25 20H18.75C19.99 20 21 18.99 21 17.75V16.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M15 12h6v4.5c0 1.1-.9 2-2 2h-4v-8.5c0-1.1.9-2 2-2h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M18 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" fill="currentColor"/>
+              </svg>
+            </span>
+            <span id="walletBtnLabel" data-i18n="wallet.connect">CONNECT WALLET</span>
+          </button>
+          <button id="disconnectWalletBtn" class="btn btn--ghost btn--disconnect" type="button" hidden data-i18n="wallet.disconnect">DISCONNECT</button>
+        </div>
+      </div>
+    </header>
+
+    <main id="home" class="main">
+      <section class="hero container">
+        <div class="heroBg" aria-hidden="true"></div>
+        <div class="hero__left">
+          <div class="kicker" data-i18n="hero.kicker">THE ULTIMATE WORLD CUP MEME COIN</div>
+          <h1 class="hero__title">
+            <span class="hero__titleTop">WORLDCUP</span>
+            <span class="hero__titleBottom">TOKEN</span>
+          </h1>
+          <p class="hero__desc" data-i18n-html="hero.desc">
+            The first meme token built for the World Cup.<br />Predict. Compete. Earn BNB Rewards.
+          </p>
+          <div class="hero__actions">
+            <a class="btn btn--primary" id="buyNowBtn" href="https://pancakeswap.finance/" target="_blank" rel="noreferrer" data-i18n="hero.buyNow">BUY NOW</a>
+            <a class="btn btn--soft" href="#prediction" data-i18n="hero.joinPrediction">JOIN PREDICTION</a>
+          </div>
+        </div>
+
+        <div class="hero__right">
+          <aside class="card card--overview" aria-label="Token overview">
+            <div class="card__title" data-i18n="overview.title">TOKEN OVERVIEW</div>
+
+            <div class="kv">
+              <div class="kv__label" data-i18n="overview.contract">CONTRACT ADDRESS</div>
+              <div class="kv__row">
+                <div id="contractAddr" class="kv__value mono" data-full="0x1234...ABCD5678">0x1234...ABCD5678</div>
+                <button class="iconBtn" id="copyContractBtn" type="button" aria-label="Copy contract address" data-i18n-aria="overview.copy">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 7.8V6.5C8 5.12 9.12 4 10.5 4H18.5C19.88 4 21 5.12 21 6.5V14.5C21 15.88 19.88 17 18.5 17H17.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    <path d="M5.5 8H13.5C14.88 8 16 9.12 16 10.5V18.5C16 19.88 14.88 21 13.5 21H5.5C4.12 21 3 19.88 3 18.5V10.5C3 9.12 4.12 8 5.5 8Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="kv">
+              <div class="kv__label" data-i18n="overview.network">NETWORK</div>
+              <div class="kv__row">
+                <div class="kv__value">
+                  <span class="chip">
+                    <span class="chip__dot" aria-hidden="true"></span>
+                    <span data-i18n="overview.bnb">BNB CHAIN</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="kv">
+              <div class="kv__label" data-i18n="overview.balances">WALLET BALANCES</div>
+              <div class="wctHero">
+                <div class="wctHero__top">
+                  <span class="wctHero__tag" data-i18n="overview.wctBalance">WCT</span>
+                  <span id="wctBalanceHero" class="wctHero__value mono">--</span>
+                </div>
+                <div class="wctHero__bottom">
+                  <span class="wctHero__meta">
+                    <span class="wctHero__metaLabel" data-i18n="overview.holdBonusPoints">HOLD BONUS</span>
+                    <span id="wctBonusPts" class="mono">--</span>
+                  </span>
+                  <span class="wctHero__meta wctHero__meta--muted">
+                    <span class="wctHero__metaLabel" data-i18n="overview.bnbBalance">BNB</span>
+                    <span id="bnbBalance" class="mono">--</span>
+                  </span>
+                </div>
+                <span id="wctBalance" class="mono" hidden>--</span>
+              </div>
+            </div>
+
+            <div class="overviewGrid">
+              <div class="miniStat">
+                <div class="miniStat__label" data-i18n="overview.tokenPrice">TOKEN PRICE</div>
+                <div id="miniPrice" class="miniStat__value">$0.0001234</div>
+                <div id="miniPriceDelta" class="miniStat__delta up">+23.45%</div>
+              </div>
+              <div class="miniStat">
+                <div class="miniStat__label" data-i18n="overview.marketCap">MARKET CAP</div>
+                <div id="miniMcap" class="miniStat__value">$12,345,678</div>
+              </div>
+              <div class="miniStat">
+                <div class="miniStat__label" data-i18n="overview.volume24h">24H VOLUME</div>
+                <div id="miniVol" class="miniStat__value">$2,345,678</div>
+              </div>
+              <div class="miniStat">
+                <div class="miniStat__label" data-i18n="overview.holders">HOLDERS</div>
+                <div id="miniHolders" class="miniStat__value">12,345</div>
+              </div>
+              <div class="miniStat">
+                <div class="miniStat__label" data-i18n="overview.totalSupply">TOTAL SUPPLY</div>
+                <div id="miniSupply" class="miniStat__value">1,000,000,000,000</div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="container dash">
+        <div class="card dashTri">
+          <div class="dashTri__left">
+            <div class="dashTri__label" data-i18n="chart.price">PRICE (WCT)</div>
+            <div class="dashTri__valueRow">
+              <div class="dashTri__value" id="priceValue">$0.0001234</div>
+              <div class="dashTri__delta up" id="priceDelta">+23.45% (24H)</div>
+            </div>
+            <div class="dashTri__miniChart">
+              <canvas id="overviewChart" aria-label="24H overview chart"></canvas>
+            </div>
+          </div>
+
+          <div class="dashTri__mid">
+            <div class="dashMetric">
+              <div class="dashMetric__label" data-i18n="dash.currentPrice">CURRENT PRICE</div>
+              <div class="dashMetric__value" id="midPriceValue">$0.0001234</div>
+            </div>
+            <div class="dashMetric">
+              <div class="dashMetric__label" data-i18n="chart.volume24h">24H VOLUME</div>
+              <div class="dashMetric__value" id="midVolValue">$2,345,678</div>
+            </div>
+            <div class="dashMetric">
+              <div class="dashMetric__label" data-i18n="chart.liquidity">LIQUIDITY</div>
+              <div class="dashMetric__value" id="midLiqValue">$1,234,567</div>
+            </div>
+          </div>
+
+          <div class="dashTri__right">
+            <div class="dashTri__tabs">
+              <div class="rangeTabs" role="tablist" aria-label="Chart range">
+                <button class="rangeTabs__btn" data-range="1H" type="button">1H</button>
+                <button class="rangeTabs__btn is-active" data-range="24H" type="button">24H</button>
+                <button class="rangeTabs__btn" data-range="7D" type="button">7D</button>
+                <button class="rangeTabs__btn" data-range="ALL" type="button">ALL</button>
+              </div>
+            </div>
+            <div class="dashTri__hint" id="chartHint"></div>
+            <div class="dashTri__mainChart">
+              <canvas id="priceChart" aria-label="Price chart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="matches" class="container grid3">
+        <div class="sectionHead">
+          <div class="sectionHead__title" data-i18n="matches.title">UPCOMING MATCHES</div>
+          <a class="btn btn--soft sectionHead__cta" href="./matches.html" data-i18n="matches.viewAllCta">View All Schedule</a>
+        </div>
+        <div id="upcomingMatches" class="upcomingHost"></div>
+        <div class="sectionCtaRow">
+          <a class="btn btn--primary sectionCtaRow__btn" href="./matches.html" data-i18n="matches.viewAllCta">View All Schedule</a>
+        </div>
+      </section>
+
+      <section class="container grid2">
+        <div id="leaderboard" class="card card--leader">
+          <div class="cardHead">
+            <div class="cardHead__title" data-i18n="leaderboard.title">PREDICTION LEADERBOARD</div>
+            <a class="cardHead__link" href="#leaderboard" data-i18n="common.viewAll">View All</a>
+          </div>
+          <ol class="leaderList" id="leaderList">
+            <li class="leaderRow is-1">
+              <div class="leaderRow__rank">1</div>
+              <div class="leaderRow__addr mono">0xAbcD...5678</div>
+              <div class="leaderRow__pts">12,345 PTS</div>
+              <div class="leaderRow__badge" aria-hidden="true">👑</div>
+            </li>
+            <li class="leaderRow is-2">
+              <div class="leaderRow__rank">2</div>
+              <div class="leaderRow__addr mono">0x1234...89AB</div>
+              <div class="leaderRow__pts">9,876 PTS</div>
+              <div class="leaderRow__badge" aria-hidden="true">👑</div>
+            </li>
+            <li class="leaderRow is-3">
+              <div class="leaderRow__rank">3</div>
+              <div class="leaderRow__addr mono">0x9876...4321</div>
+              <div class="leaderRow__pts">8,765 PTS</div>
+              <div class="leaderRow__badge" aria-hidden="true">👑</div>
+            </li>
+            <li class="leaderRow">
+              <div class="leaderRow__rank">4</div>
+              <div class="leaderRow__addr mono">0xBEEF...CAFE</div>
+              <div class="leaderRow__pts">7,654 PTS</div>
+              <div class="leaderRow__badge" aria-hidden="true"> </div>
+            </li>
+            <li class="leaderRow">
+              <div class="leaderRow__rank">5</div>
+              <div class="leaderRow__addr mono">0xDEAD...BEEF</div>
+              <div class="leaderRow__pts">6,543 PTS</div>
+              <div class="leaderRow__badge" aria-hidden="true"> </div>
+            </li>
+          </ol>
+        </div>
+
+        <div id="rewards" class="card card--rewards">
+          <div class="cardHead">
+            <div class="cardHead__title" data-i18n="rewards.poolTitle">REWARDS POOL</div>
+          </div>
+          <div class="rewardsBody">
+            <div class="rewardsBody__left">
+              <div class="rewardsLabel" data-i18n="rewards.totalRewards">TOTAL REWARDS</div>
+              <div class="rewardsValue">
+                <span class="rewardsNum" id="rewardsPoolValue">--</span>
+                <span class="rewardsUnit">BNB</span>
+              </div>
+              <button class="btn btn--primary rewardsBtn" type="button" id="viewRewardsBtn" data-i18n="rewards.viewRewards">VIEW REWARDS</button>
+              <div class="rewardsRules" data-i18n-html="rewards.rulesHtml"></div>
+            </div>
+            <div class="rewardsBody__right" aria-hidden="true">
+              <div class="coin coin--img" aria-hidden="true">
+                <div class="coin__tilt">
+                  <img class="coin__img" src="./bnblogo.png" alt="" loading="lazy" decoding="async" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="prediction" class="container sectionPad">
+        <div class="card card--prediction">
+          <div class="cardHead">
+            <div class="cardHead__title" data-i18n="prediction.title">PREDICTION</div>
+            <div class="cardHead__hint" id="predictionHint" data-i18n="prediction.hintDisconnected">Connect wallet to submit predictions.</div>
+          </div>
+
+          <div id="predictionList" class="predGrid"></div>
+        </div>
+      </section>
+
+      <section class="container sectionPad">
+        <div class="card card--mybets">
+          <div class="cardHead">
+            <div class="cardHead__title" data-i18n="bets.title">MY BETS</div>
+            <div class="cardHead__hint" id="betsHint" data-i18n="bets.hintDisconnected">Connect wallet to view your bet history.</div>
+          </div>
+          <div id="myBetsList" class="myBets"></div>
+        </div>
+      </section>
+
+      <footer class="container footer" id="roadmap">
+        <div class="footer__inner">
+          <div class="footer__title" data-i18n="roadmap.title">ROADMAP</div>
+        </div>
+        <div class="footerSocial">
+          <div class="footerSocial__label" data-i18n="social.follow">FOLLOW US</div>
+          <a class="footerSocial__link" href="https://x.com/WCTFLAP" target="_blank" rel="noreferrer" aria-label="Twitter / X">
+            <span class="footerSocial__icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M18.9 3H22l-6.8 7.8L23.1 21H17l-4.8-6.2L6.8 21H3.7l7.3-8.4L1 3h6.3l4.3 5.6L18.9 3Z" fill="currentColor"/>
+              </svg>
+            </span>
+            <span class="footerSocial__text">
+              <span class="footerSocial__name">Twitter / X</span>
+              <span class="footerSocial__handle">@WCTFLAP</span>
+            </span>
+            <span class="footerSocial__cta" data-i18n="social.open">OPEN</span>
+          </a>
+        </div>
+      </footer>
+    </main>
+
+    <div class="modal" id="rewardsModal" aria-hidden="true">
+      <div class="modal__backdrop" data-close="rewards"></div>
+      <div class="modal__panel" role="dialog" aria-modal="true" aria-label="Rewards">
+        <div class="modal__head">
+          <div class="modal__title" data-i18n="rewards.modalTitle">Your Rewards</div>
+          <button class="iconBtn" type="button" data-close="rewards" aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              <path d="M6 6L18 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal__body">
+          <div class="rewardRow">
+            <div class="rewardRow__label" data-i18n="rewards.available">Available</div>
+            <div class="rewardRow__value"><span id="rewardAvailable">0.00</span> BNB</div>
+          </div>
+          <div class="rewardRow">
+            <div class="rewardRow__label" data-i18n="rewards.claimed">Claimed</div>
+            <div class="rewardRow__value"><span id="rewardClaimed">0.00</span> BNB</div>
+          </div>
+          <button id="claimRewardsBtn" class="btn btn--primary modal__cta" type="button" data-i18n="rewards.claim">CLAIM</button>
+          <div class="modal__hint" id="claimHint" data-i18n="rewards.hintDisconnected">Connect wallet to claim rewards.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="toastHost" id="toastHost" aria-live="polite" aria-relevant="additions"></div>
+    <script src="./app.js?v=20260516"></script>
+  </body>
+</html>
