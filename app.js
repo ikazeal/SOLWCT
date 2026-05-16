@@ -2,6 +2,7 @@ const state = {
   lang: "en",
   wallet: {
     address: null,
+    connected: false,
     chainId: null,
     wctDecimals: null,
     wctBalanceRaw: 0n,
@@ -1551,7 +1552,9 @@ function updateWalletUI() {
   const claimHint = $("#claimHint");
   const claimBtn = $("#claimRewardsBtn");
 
-  if (state.wallet.address) {
+  const isConnected = !!(state.wallet.address && state.wallet.connected);
+
+  if (isConnected) {
     if (label) label.textContent = truncateAddress(state.wallet.address);
     if (disconnectBtn) disconnectBtn.hidden = false;
     if (hint) hint.textContent = t("prediction.hintConnected");
@@ -1624,6 +1627,7 @@ async function connectWallet() {
   try {
     const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
     state.wallet.address = accounts && accounts[0] ? accounts[0] : null;
+    state.wallet.connected = !!state.wallet.address;
     state.wallet.wctDecimals = null;
     state.wallet.wctBalanceRaw = 0n;
     state.wallet.lastBalanceSyncMs = 0;
@@ -1642,6 +1646,7 @@ async function connectWallet() {
 
 function disconnectWallet() {
   state.wallet.address = null;
+  state.wallet.connected = false;
   state.wallet.wctDecimals = null;
   state.wallet.wctBalanceRaw = 0n;
   state.wallet.lastBalanceSyncMs = 0;
@@ -1658,6 +1663,7 @@ function setupWalletListeners() {
   if (!window.ethereum) return;
   window.ethereum.on("accountsChanged", (accounts) => {
     state.wallet.address = accounts && accounts[0] ? accounts[0] : null;
+    state.wallet.connected = !!state.wallet.address;
     state.wallet.wctDecimals = null;
     state.wallet.wctBalanceRaw = 0n;
     state.wallet.lastBalanceSyncMs = 0;
@@ -3543,20 +3549,6 @@ function boot() {
   }
 
   if (window.ethereum) {
-    window.ethereum
-      .request({ method: "eth_accounts" })
-      .then((accounts) => {
-        state.wallet.address = accounts && accounts[0] ? accounts[0] : null;
-        state.wallet.wctDecimals = null;
-        state.wallet.wctBalanceRaw = 0n;
-        state.wallet.lastBalanceSyncMs = 0;
-        initBackendState();
-        updateWalletUI();
-        hydrateRewardsFromAddress();
-        fetchWalletBalances();
-        if (state.wallet.address && state.backend.enabled) backendSyncAll({ force: true });
-      })
-      .catch(() => {});
     window.ethereum
       .request({ method: "eth_chainId" })
       .then((chainId) => {

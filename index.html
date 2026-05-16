@@ -92,13 +92,30 @@
 
         <div class="hero__right">
           <aside class="card card--overview" aria-label="Token overview">
-            <div class="card__title" data-i18n="overview.title">TOKEN OVERVIEW</div>
+            <div class="overviewHead">
+              <div class="overviewHead__left">
+                <div class="card__title" data-i18n="overview.title">TOKEN OVERVIEW</div>
+                <div class="overviewHead__meta">
+                  <span class="overviewHead__token mono">WCT</span>
+                  <span class="overviewHead__sep" aria-hidden="true">·</span>
+                  <span class="overviewHead__net" data-i18n="overview.bnb">BNB CHAIN</span>
+                </div>
+              </div>
+              <img
+                class="tokenAvatar"
+                src="./token-avatar.png"
+                alt="WCT"
+                onerror="this.onerror=null;this.src='./hero-bg.png.png';"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
 
             <div class="kv">
               <div class="kv__label" data-i18n="overview.contract">CONTRACT ADDRESS</div>
               <div class="kv__row">
-                <div id="contractAddr" class="kv__value mono" data-full="0x1234...ABCD5678">0x1234...ABCD5678</div>
-                <button class="iconBtn" id="copyContractBtn" type="button" aria-label="Copy contract address" data-i18n-aria="overview.copy">
+                <div id="contractAddr" class="kv__value kv__value--contract mono" data-full="0x1234...ABCD5678">0x1234...ABCD5678</div>
+                <button class="iconBtn iconBtn--copy" id="copyContractBtn" type="button" aria-label="Copy contract address" data-i18n-aria="overview.copy">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M8 7.8V6.5C8 5.12 9.12 4 10.5 4H18.5C19.88 4 21 5.12 21 6.5V14.5C21 15.88 19.88 17 18.5 17H17.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                     <path d="M5.5 8H13.5C14.88 8 16 9.12 16 10.5V18.5C16 19.88 14.88 21 13.5 21H5.5C4.12 21 3 19.88 3 18.5V10.5C3 9.12 4.12 8 5.5 8Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
@@ -107,7 +124,7 @@
               </div>
             </div>
 
-            <div class="kv">
+            <div class="kv kv--network">
               <div class="kv__label" data-i18n="overview.network">NETWORK</div>
               <div class="kv__row">
                 <div class="kv__value">

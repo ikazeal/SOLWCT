@@ -612,6 +612,43 @@ button{font:inherit}
   width:min(360px, 100%);
   padding:18px 18px 16px;
 }
+.card--overview .card__title{
+  margin:0;
+  font-weight:950;
+  letter-spacing:.16em;
+  font-size:11.5px;
+  color:rgba(207,140,255,.92);
+}
+.overviewHead{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+.overviewHead__left{min-width:0}
+.overviewHead__meta{
+  margin-top:7px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:rgba(244,240,255,.72);
+  font-weight:900;
+  letter-spacing:.06em;
+  font-size:12px;
+}
+.overviewHead__token{color:rgba(244,240,255,.92)}
+.overviewHead__sep{opacity:.6}
+.overviewHead__net{color:rgba(180,92,255,.92)}
+.tokenAvatar{
+  width:46px;
+  height:46px;
+  border-radius:16px;
+  border:1px solid rgba(171,107,255,.22);
+  background:rgba(12,8,22,.35);
+  box-shadow:0 18px 46px rgba(0,0,0,.38);
+  object-fit:cover;
+}
 .card__title{
   font-weight:800;
   letter-spacing:.14em;
@@ -643,6 +680,24 @@ button{font:inherit}
 .kv__value{
   font-size:12.5px;
   color:rgba(244,240,255,.92);
+}
+.card--overview .kv__label{
+  font-size:10.8px;
+  letter-spacing:.16em;
+  color:rgba(244,240,255,.62);
+}
+.kv__value--contract{
+  flex:1;
+  min-width:0;
+  padding:8px 10px;
+  border-radius:14px;
+  border:1px solid rgba(171,107,255,.22);
+  background:radial-gradient(240px 80px at 10% 0%, rgba(180,92,255,.18), transparent 60%), rgba(12,8,22,.28);
+  box-shadow:0 12px 34px rgba(0,0,0,.28);
+  color:rgba(244,240,255,.95);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
 }
 .wctHero{
   margin-top:10px;
@@ -680,6 +735,13 @@ button{font:inherit}
   cursor:pointer;
   transition:border-color .18s ease, transform .08s ease, box-shadow .18s ease;
 }
+.iconBtn--copy{
+  width:40px;
+  height:40px;
+  border-radius:14px;
+  border-color:rgba(171,107,255,.32);
+  background:linear-gradient(135deg, rgba(180,92,255,.18), rgba(12,8,22,.35));
+}
 .iconBtn:hover{border-color:rgba(171,107,255,.42);box-shadow:0 10px 26px rgba(0,0,0,.35)}
 .iconBtn:active{transform:translateY(1px)}
 
@@ -695,11 +757,20 @@ button{font:inherit}
   letter-spacing:.1em;
   font-weight:700;
 }
+.kv--network .chip{
+  padding:8px 12px;
+  border-color:rgba(171,107,255,.3);
+  background:radial-gradient(240px 100px at 0% 0%, rgba(109,246,255,.14), transparent 55%),
+    rgba(12,8,22,.35);
+  font-weight:900;
+  letter-spacing:.12em;
+}
 .chip__dot{
   width:10px;height:10px;border-radius:999px;
   background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.35), transparent 55%), #f7c948;
   box-shadow:0 0 0 6px rgba(247,201,72,.16);
 }
+.kv--network .chip__dot{box-shadow:0 0 0 7px rgba(247,201,72,.18)}
 
 .overviewGrid{
   display:grid;
