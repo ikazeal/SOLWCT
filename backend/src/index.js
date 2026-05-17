@@ -70,6 +70,15 @@ function buildLoginMessage({ address, nonce, issuedAt, origin }) {
   return `WCT Login\nOrigin: ${o}\nAddress: ${address}\nNonce: ${nonce}\nIssued At: ${new Date(issuedAt).toISOString()}`;
 }
 
+function kickoffMsFromMatchId(matchId) {
+  const raw = String(matchId || "");
+  const m = raw.match(/^(\d{4}-\d{2}-\d{2})_(\d{2}:\d{2})_/);
+  if (!m) return NaN;
+  const iso = `${m[1]}T${m[2]}:00+08:00`;
+  const ms = Date.parse(iso);
+  return Number.isFinite(ms) ? ms : NaN;
+}
+
 function verifyLoginMessage({ address, signature, message }) {
   const target = normAddress(address);
   const sig = String(signature || "");
@@ -558,6 +567,7 @@ app.post("/v1/predictions", auth, wrap(async (req, res) => {
   } catch {
     kickoffMs = NaN;
   }
+  if (!Number.isFinite(kickoffMs)) kickoffMs = kickoffMsFromMatchId(matchId);
   if (!Number.isFinite(kickoffMs)) return jsonErr(res, 400, "match_not_found");
   if (nowMs() >= kickoffMs - BET_CLOSE_BEFORE_MS) return jsonErr(res, 400, "bet_closed");
 
