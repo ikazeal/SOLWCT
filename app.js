@@ -82,6 +82,23 @@ const WCT_BONUS_TIER_10M = 10000000n;
 const MAX_SAFE_POINTS = 9007199254740991;
 const TRADING_FEE_RATE = 0.03;
 
+function getEvmProvider() {
+  const w = typeof window !== "undefined" ? window : null;
+  if (!w) return null;
+  const list = [];
+  const okx = w.okxwallet;
+  if (okx && typeof okx.request === "function") list.push(okx);
+  const eth = w.ethereum;
+  if (eth && typeof eth.request === "function") {
+    const providers = Array.isArray(eth.providers) ? eth.providers : [];
+    providers.forEach((p) => {
+      if (p && typeof p.request === "function") list.push(p);
+    });
+    list.push(eth);
+  }
+  return list.find((p) => p && (p.isOkxWallet || p.isOKXWallet)) || list[0] || null;
+}
+
 const I18N = {
   en: {
     "doc.title": "WorldCup Token",
@@ -1141,7 +1158,8 @@ async function backendFetch(path, { method = "GET", headers = {}, body } = {}) {
 
 async function backendEnsureLogin({ interactive } = {}) {
   if (!state.backend.enabled) return false;
-  if (!window.ethereum || !state.wallet.address) return false;
+  const provider = getEvmProvider();
+  if (!provider || !state.wallet.address) return false;
   const addr = state.wallet.address;
 
   const token = getBackendToken(addr);
@@ -1177,7 +1195,7 @@ async function backendEnsureLogin({ interactive } = {}) {
 
   let signature = "";
   try {
-    signature = await window.ethereum.request({ method: "personal_sign", params: [message, addr] });
+    signature = await provider.request({ method: "personal_sign", params: [message, addr] });
   } catch {
     toast(t("toast.backendLoginFailed"));
     return false;
@@ -1584,7 +1602,8 @@ function formatUnitsShort(value, decimals, maxFrac = 6) {
 
 async function fetchWalletBalances() {
   const addr = state.wallet.address;
-  if (!window.ethereum || !addr) {
+  const provider = getEvmProvider();
+  if (!provider || !addr) {
     setText("bnbBalance", "--");
     setText("wctBalance", "--");
     setText("wctBalanceHero", "--");
@@ -1596,7 +1615,7 @@ async function fetchWalletBalances() {
   state.wallet.lastBalanceSyncMs = now;
 
   try {
-    const chainId = await window.ethereum.request({ method: "eth_chainId" });
+    const chainId = await provider.request({ method: "eth_chainId" });
     state.wallet.chainId = chainId;
     if (chainId !== BSC_CHAIN_ID_HEX) {
       setText("bnbBalance", "--");
@@ -1609,7 +1628,7 @@ async function fetchWalletBalances() {
     // ignore
   }
   try {
-    const bnbHex = await window.ethereum.request({ method: "eth_getBalance", params: [addr, "latest"] });
+    const bnbHex = await provider.request({ method: "eth_getBalance", params: [addr, "latest"] });
     const bnb = hexToBigInt(bnbHex);
     setText("bnbBalance", formatUnitsShort(bnb, 18, 4));
   } catch {
@@ -1619,12 +1638,12 @@ async function fetchWalletBalances() {
   try {
     const token = CONTRACT_ADDRESS;
     if (!state.wallet.wctDecimals) {
-      const decHex = await window.ethereum.request({ method: "eth_call", params: [{ to: token, data: "0x313ce567" }, "latest"] });
+      const decHex = await provider.request({ method: "eth_call", params: [{ to: token, data: "0x313ce567" }, "latest"] });
       const dec = Number(hexToBigInt(decHex));
       state.wallet.wctDecimals = Number.isFinite(dec) ? dec : 18;
     }
     const data = `0x70a08231${encodeAddressParam(addr)}`;
-    const balHex = await window.ethereum.request({ method: "eth_call", params: [{ to: token, data }, "latest"] });
+    const balHex = await provider.request({ method: "eth_call", params: [{ to: token, data }, "latest"] });
     const bal = hexToBigInt(balHex);
     state.wallet.wctBalanceRaw = bal;
     setText("wctBalance", formatUnitsShort(bal, state.wallet.wctDecimals, 6));
@@ -1682,12 +1701,13 @@ function updateWalletUI() {
 }
 
 async function ensureBscNetwork() {
-  if (!window.ethereum) return false;
-  const chainId = await window.ethereum.request({ method: "eth_chainId" });
+  const provider = getEvmProvider();
+  if (!provider) return false;
+  const chainId = await provider.request({ method: "eth_chainId" });
   state.wallet.chainId = chainId;
   if (chainId === BSC_CHAIN_ID_HEX) return true;
   try {
-    await window.ethereum.request({
+    await provider.request({
       method: "wallet_switchEthereumChain",
       params: [{ chainId: BSC_CHAIN_ID_HEX }],
     });
@@ -1696,7 +1716,7 @@ async function ensureBscNetwork() {
   } catch (err) {
     if (err && err.code === 4902) {
       try {
-        await window.ethereum.request({
+        await provider.request({
           method: "wallet_addEthereumChain",
           params: [
             {
@@ -1721,7 +1741,8 @@ async function ensureBscNetwork() {
 }
 
 async function connectWallet() {
-  if (!window.ethereum || typeof window.ethereum.request !== "function") {
+  const provider = getEvmProvider();
+  if (!provider || typeof provider.request !== "function") {
     const msg = t("toast.noWallet");
     toast(msg);
     try {
@@ -1732,7 +1753,7 @@ async function connectWallet() {
   }
 
   try {
-    const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+    const accounts = await provider.request({ method: "eth_requestAccounts" });
     state.wallet.address = accounts && accounts[0] ? accounts[0] : null;
     state.wallet.connected = !!state.wallet.address;
     state.wallet.manualConnected = !!state.wallet.address;
@@ -1772,8 +1793,9 @@ function disconnectWallet() {
 }
 
 function setupWalletListeners() {
-  if (!window.ethereum) return;
-  window.ethereum.on("accountsChanged", (accounts) => {
+  const provider = getEvmProvider();
+  if (!provider || typeof provider.on !== "function") return;
+  provider.on("accountsChanged", (accounts) => {
     state.wallet.address = accounts && accounts[0] ? accounts[0] : null;
     state.wallet.connected = !!state.wallet.address;
     if (!state.wallet.address) {
@@ -1791,7 +1813,7 @@ function setupWalletListeners() {
     fetchWalletBalances();
     if (state.wallet.address && state.backend.enabled) backendSyncAll({ force: true });
   });
-  window.ethereum.on("chainChanged", (chainId) => {
+  provider.on("chainChanged", (chainId) => {
     state.wallet.chainId = chainId;
     if (state.wallet.address && chainId !== BSC_CHAIN_ID_HEX) {
       toast(t("toast.switchToBsc"));
@@ -3058,7 +3080,7 @@ function startScheduleTicker() {
         backendSyncAll();
       }
     }
-    if (state.wallet.address && window.ethereum) {
+    if (state.wallet.address && getEvmProvider()) {
       const now = Date.now();
       if (!state.wallet.lastBalanceSyncMs || now - state.wallet.lastBalanceSyncMs >= 15000) {
         state.wallet.lastBalanceSyncMs = now;
@@ -3296,7 +3318,7 @@ async function placePrediction(matchId, pick) {
     toast(t("toast.connectToSubmit"));
     return;
   }
-  if (!window.ethereum) {
+  if (!getEvmProvider()) {
     toast(t("toast.noWallet"));
     return;
   }
@@ -3663,8 +3685,9 @@ function boot() {
         });
     }
 
-    if (window.ethereum) {
-      window.ethereum
+    const provider = getEvmProvider();
+    if (provider) {
+      provider
         .request({ method: "eth_chainId" })
         .then((chainId) => {
           state.wallet.chainId = chainId;
