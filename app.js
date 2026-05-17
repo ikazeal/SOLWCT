@@ -1193,16 +1193,47 @@ async function backendEnsureLogin({ interactive } = {}) {
     return false;
   }
 
-  let signature = "";
-  try {
-    signature = await provider.request({ method: "personal_sign", params: [message, addr] });
-  } catch {
+  const trySign = async (params) => {
+    try {
+      return await provider.request({ method: "personal_sign", params });
+    } catch {
+      return "";
+    }
+  };
+  const sigA = await trySign([message, addr]);
+  const sigB = sigA ? "" : await trySign([addr, message]);
+  let signature = sigA || sigB;
+  if (!signature) {
     toast(t("toast.backendLoginFailed"));
     return false;
   }
 
   try {
-    const r2 = await backendFetch("/v1/login", { method: "POST", body: { address: addr, signature } });
+    let r2 = null;
+    try {
+      r2 = await backendFetch("/v1/login", { method: "POST", body: { address: addr, signature } });
+    } catch (e) {
+      const msg = String(e?.message || "");
+      if ((msg === "bad_signature" || msg === "signature_mismatch") && sigA && !sigB) {
+        const retrySig = await trySign([addr, message]);
+        if (retrySig) {
+          signature = retrySig;
+          r2 = await backendFetch("/v1/login", { method: "POST", body: { address: addr, signature } });
+        } else {
+          throw e;
+        }
+      } else if ((msg === "bad_signature" || msg === "signature_mismatch") && sigB && !sigA) {
+        const retrySig = await trySign([message, addr]);
+        if (retrySig) {
+          signature = retrySig;
+          r2 = await backendFetch("/v1/login", { method: "POST", body: { address: addr, signature } });
+        } else {
+          throw e;
+        }
+      } else {
+        throw e;
+      }
+    }
     const tok = r2 && r2.token ? String(r2.token) : "";
     if (!tok) throw new Error("no_token");
     state.backend.token = tok;
