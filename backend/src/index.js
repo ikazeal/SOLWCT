@@ -9,7 +9,7 @@ const PORT = Number(process.env.PORT || 8787);
 const ALLOWED_ORIGINS = String(process.env.ALLOWED_ORIGINS || "*");
 const SCHEDULE_URL = String(process.env.SCHEDULE_URL || "http://localhost:4173/schedule.json");
 
-const DATABASE_URL = String(process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.SUPABASE_DB_URL || "");
+const RAW_DATABASE_URL = String(process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.SUPABASE_DB_URL || "");
 const DATABASE_SSL = String(process.env.DATABASE_SSL || "true").toLowerCase() !== "false";
 
 const BSC_RPC_URL = String(process.env.BSC_RPC_URL || "https://bsc-rpc.publicnode.com");
@@ -75,6 +75,20 @@ function getDailyPredictionLimit(wholeWct) {
   const w = typeof wholeWct === "bigint" ? wholeWct : 0n;
   return w >= DAILY_PRED_LIMIT_MIN_HOLD ? DAILY_PRED_LIMIT_HOLD : DAILY_PRED_LIMIT_NO_HOLD;
 }
+
+function normalizeDatabaseUrl(url) {
+  const raw = String(url || "");
+  if (!raw) return "";
+  const m = raw.match(/^(postgres(?:ql)?:\/\/[^:]+:)([^@]*)(@[\s\S]+)$/i);
+  if (!m) return raw;
+  const prefix = m[1];
+  let password = m[2] || "";
+  const suffix = m[3];
+  password = password.replace(/\[/g, "%5B").replace(/\]/g, "%5D").replace(/!/g, "%21");
+  return `${prefix}${password}${suffix}`;
+}
+
+const DATABASE_URL = normalizeDatabaseUrl(RAW_DATABASE_URL);
 
 function ensureDbUrl() {
   if (!DATABASE_URL) throw new Error("Missing DATABASE_URL");
@@ -197,7 +211,9 @@ function buildCorsOptions() {
   );
   return {
     origin(origin, cb) {
-      if (!origin) return cb(null, false);
+      if (!origin) return cb(null, true);
+      if (allow.has("*")) return cb(null, true);
+      if (origin === "null") return cb(null, true);
       return cb(null, allow.has(origin));
     },
   };
