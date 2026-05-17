@@ -113,6 +113,10 @@ async function dbQuery(text, params) {
   return await db.query(text, params);
 }
 
+async function ensureDbSchema() {
+  await dbQuery("alter table if exists public.nonces add column if not exists origin text", []);
+}
+
 const provider = new ethers.JsonRpcProvider(BSC_RPC_URL);
 const erc20 = new ethers.Interface([
   "function decimals() view returns (uint8)",
@@ -295,13 +299,13 @@ app.get("/health", (req, res) => jsonOk(res, { ok: true }));
 app.get("/v1/nonce", wrap(async (req, res) => {
   const address = normAddress(req.query.address);
   if (!isAddress(address)) return jsonErr(res, 400, "invalid_address");
-  const origin = String(req.headers.origin || req.headers.host || "WCT");
+  const origin = String((req.headers.origin ?? req.headers.host ?? "WCT") || "WCT");
   const nonce = randHex(16);
   const issuedAt = nowMs();
   const expiresAt = issuedAt + NONCE_TTL_MS;
   await dbQuery(
-    "insert into public.nonces(address, nonce, issued_at, expires_at) values ($1, $2, to_timestamp($3/1000.0), to_timestamp($4/1000.0)) on conflict (address) do update set nonce = excluded.nonce, issued_at = excluded.issued_at, expires_at = excluded.expires_at",
-    [address, nonce, issuedAt, expiresAt],
+    "insert into public.nonces(address, nonce, origin, issued_at, expires_at) values ($1, $2, $3, to_timestamp($4/1000.0), to_timestamp($5/1000.0)) on conflict (address) do update set nonce = excluded.nonce, origin = excluded.origin, issued_at = excluded.issued_at, expires_at = excluded.expires_at",
+    [address, nonce, origin, issuedAt, expiresAt],
   );
   const message = buildLoginMessage({ address, nonce, issuedAt, origin });
   jsonOk(res, { address, nonce, issuedAt, expiresAt, message });
@@ -313,13 +317,13 @@ app.post("/v1/login", wrap(async (req, res) => {
   if (!isAddress(address)) return jsonErr(res, 400, "invalid_address");
   if (!signature) return jsonErr(res, 400, "missing_signature");
   const nonceRes = await dbQuery(
-    "select address, nonce, extract(epoch from issued_at)*1000 as issued_at_ms, extract(epoch from expires_at)*1000 as expires_at_ms from public.nonces where address = $1 limit 1",
+    "select address, nonce, origin, extract(epoch from issued_at)*1000 as issued_at_ms, extract(epoch from expires_at)*1000 as expires_at_ms from public.nonces where address = $1 limit 1",
     [address],
   );
   const nonceRow = nonceRes.rows && nonceRes.rows[0] ? nonceRes.rows[0] : null;
   if (!nonceRow) return jsonErr(res, 400, "missing_nonce");
   if (clampInt(nonceRow.expires_at_ms, 0) <= nowMs()) return jsonErr(res, 400, "expired_nonce");
-  const origin = String(req.headers.origin || req.headers.host || "WCT");
+  const origin = nonceRow.origin ? String(nonceRow.origin) : String((req.headers.origin ?? req.headers.host ?? "WCT") || "WCT");
   const message = buildLoginMessage({ address, nonce: String(nonceRow.nonce), issuedAt: clampInt(nonceRow.issued_at_ms, nowMs()), origin });
   let recovered = "";
   try {
@@ -560,6 +564,10 @@ app.use((err, req, res, next) => {
   return jsonErr(res, 503, "backend_error");
 });
 
-app.listen(PORT, () => {
-  process.stdout.write(`wct-backend listening on :${PORT}\n`);
-});
+ensureDbSchema()
+  .catch(() => {})
+  .finally(() => {
+    app.listen(PORT, () => {
+      process.stdout.write(`wct-backend listening on :${PORT}\n`);
+    });
+  });
