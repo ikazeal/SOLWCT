@@ -149,6 +149,8 @@ const I18N = {
     "rewards.totalRewards": "POOL (BNB)",
     "rewards.viewRewards": "VIEW REWARDS",
     "rewards.rulesHtml": "<b>Prize rules</b>: Top 5 share the prize pool — #1 40%, #2 20%, #3 10%, #4 5%, #5 5%. <b>Tax plan</b>: 60% of trading tax goes to prize-related uses (20% marketing, 40% rewards). Remaining 40%: 30% buyback & burn, 10% liquidity. <a href=\"./whitepaper.html\">Details</a>.",
+    "rewards.poolEmpty": "No BNB in pool yet",
+    "rewards.poolLoading": "Syncing on-chain pool…",
     "rewards.modalTitle": "Your Rewards",
     "rewards.available": "Available",
     "rewards.claimed": "Claimed",
@@ -283,6 +285,8 @@ const I18N = {
     "rewards.totalRewards": "奖池（BNB）",
     "rewards.viewRewards": "查看奖励",
     "rewards.rulesHtml": "<b>获奖机制</b>：前 5 名瓜分奖池——第 1 名 40%，第 2 名 20%，第 3 名 10%，第 4/5 名各 5%。<b>税费规划</b>：交易税费的 60% 用于奖池相关（20% 营销、40% 奖励）；剩余 40%（30% 回购销毁、10% 流动性）。<a href=\"./whitepaper.html\">查看详情</a>。",
+    "rewards.poolEmpty": "奖池暂无 BNB",
+    "rewards.poolLoading": "奖池余额同步中…",
     "rewards.modalTitle": "我的奖励",
     "rewards.available": "可领取",
     "rewards.claimed": "已领取",
@@ -1047,8 +1051,8 @@ function bumpTodayPredictionCount(addr) {
   localStorage.setItem(k, String(next));
 }
 
-function getDailyPredictionLimit(wholeWct) {
-  const w = typeof wholeWct === "bigint" ? wholeWct : 0n;
+function getDailyPredictionLimit(wctBalanceRaw) {
+  const w = typeof wctBalanceRaw === "bigint" ? wctBalanceRaw : 0n;
   return w > 0n ? DAILY_PRED_LIMIT_HOLD : DAILY_PRED_LIMIT_NO_HOLD;
 }
 
@@ -1609,7 +1613,7 @@ function updateWalletUI() {
     if (disconnectBtn) disconnectBtn.hidden = false;
     if (connectBtn) connectBtn.setAttribute("aria-expanded", String(!!state.wallet.walletMenuOpen));
     const wholeWct = getWctWholeBalance();
-    const limit = getDailyPredictionLimit(wholeWct);
+    const limit = getDailyPredictionLimit(state.wallet.wctBalanceRaw);
     const used = getTodayPredictionCount(state.wallet.address);
     const left = Math.max(0, limit - used);
     const boost = getPredictionBoost(wholeWct);
@@ -1679,14 +1683,13 @@ async function connectWallet() {
     return;
   }
 
-  const ok = await ensureBscNetwork();
-  if (!ok) return;
-
   try {
     const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
     state.wallet.address = accounts && accounts[0] ? accounts[0] : null;
     state.wallet.connected = !!state.wallet.address;
     state.wallet.manualConnected = !!state.wallet.address;
+    const ok = await ensureBscNetwork();
+    if (!ok) toast(t("toast.switchToBsc"));
     state.wallet.walletMenuOpen = false;
     state.wallet.wctDecimals = null;
     state.wallet.wctBalanceRaw = 0n;
@@ -3162,13 +3165,16 @@ function persistRewardsForAddress() {
 function renderRewards() {
   setText("rewardAvailable", state.rewards.available.toFixed(2));
   setText("rewardClaimed", state.rewards.claimed.toFixed(2));
+  const hintEl = document.getElementById("rewardsPoolHint");
   const onchainWei = state.rewards.poolBnbOnchainWei;
-  if (typeof onchainWei === "bigint" && onchainWei > 0n) {
+  if (typeof onchainWei === "bigint") {
     setText("rewardsPoolValue", formatUnitsShort(onchainWei, 18, 4));
+    if (hintEl) hintEl.textContent = onchainWei > 0n ? "" : t("rewards.poolEmpty");
     return;
   }
   const pool = Number(state.rewards.poolBnb24h || 0);
   setText("rewardsPoolValue", pool > 0 ? pool.toFixed(2) : "--");
+  if (hintEl) hintEl.textContent = pool > 0 ? "" : t("rewards.poolLoading");
 }
 
 function resultKey(matchId) {
@@ -3242,6 +3248,12 @@ async function placePrediction(matchId, pick) {
     toast(t("toast.connectToSubmit"));
     return;
   }
+  if (!window.ethereum) {
+    toast(t("toast.noWallet"));
+    return;
+  }
+  const netOk = await ensureBscNetwork();
+  if (!netOk) return;
   if (!state.schedule.loaded) return;
   const match = state.schedule.matches.find((m) => m.id === matchId);
   if (!match) return;
@@ -3256,8 +3268,12 @@ async function placePrediction(matchId, pick) {
     return;
   }
 
+  if (!state.wallet.wctDecimals || !state.wallet.lastBalanceSyncMs || Date.now() - state.wallet.lastBalanceSyncMs > 60000) {
+    await fetchWalletBalances();
+  }
+
   const wholeWct = getWctWholeBalance();
-  const limit = getDailyPredictionLimit(wholeWct);
+  const limit = getDailyPredictionLimit(state.wallet.wctBalanceRaw);
   const used = getTodayPredictionCount(addr);
   if (used >= limit) {
     toast(t("toast.dailyLimit", { limit, holdLimit: DAILY_PRED_LIMIT_HOLD }));
@@ -3534,6 +3550,12 @@ function boot() {
   const isWhitepaperPage = page === "whitepaper";
   const initialMatchId = new URLSearchParams(window.location.search).get("match");
 
+  if (!isWhitepaperPage && !isMatchesPage) {
+    refreshTokenSnapshot();
+    window.setInterval(() => refreshTokenSnapshot(), 15000);
+    window.setInterval(() => fetchWalletBalances(), 15000);
+  }
+
   if (!isWhitepaperPage) {
     loadSchedule()
       .then(() => {
@@ -3546,9 +3568,6 @@ function boot() {
           renderPredictionMatches();
           renderMyBets();
           if (initialMatchId) scrollToPredictionMatch(initialMatchId);
-          refreshTokenSnapshot();
-          window.setInterval(() => refreshTokenSnapshot(), 15000);
-          window.setInterval(() => fetchWalletBalances(), 15000);
         }
       })
       .catch(() => {
