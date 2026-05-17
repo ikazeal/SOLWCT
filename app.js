@@ -51,6 +51,7 @@ const state = {
     lastSyncMs: 0,
     syncing: false,
     leaderboardRows: [],
+    stream: null,
     loginPromise: null,
   },
 };
@@ -1129,6 +1130,12 @@ function setBackendToken(addr, token) {
 }
 
 function initBackendState() {
+  if (state.backend.stream && state.backend.stream.es) {
+    try {
+      state.backend.stream.es.close();
+    } catch {
+    }
+  }
   state.backend.baseUrl = getBackendBaseUrl();
   state.backend.enabled = Boolean(state.backend.baseUrl);
   state.backend.token = state.wallet.address ? getBackendToken(state.wallet.address) : null;
@@ -1136,6 +1143,7 @@ function initBackendState() {
   state.backend.lastSyncMs = 0;
   state.backend.syncing = false;
   state.backend.leaderboardRows = [];
+  state.backend.stream = null;
   state.backend.loginPromise = null;
 
   state.rewards.treasuryAddress = getTreasuryAddress();
@@ -1167,6 +1175,173 @@ async function backendFetch(path, { method = "GET", headers = {}, body } = {}) {
     throw e;
   }
   return await res.json();
+}
+
+function cssEscapeCompat(s) {
+  const raw = String(s ?? "");
+  if (typeof CSS !== "undefined" && CSS && typeof CSS.escape === "function") return CSS.escape(raw);
+  return raw.replace(/[^a-zA-Z0-9_-]/g, (c) => `\\${c.codePointAt(0).toString(16)} `);
+}
+
+function poolLeaderFromCounts(counts) {
+  const c = counts || { HOME: 0, DRAW: 0, AWAY: 0 };
+  const h = Math.max(0, Math.floor(Number(c.HOME || 0)));
+  const d = Math.max(0, Math.floor(Number(c.DRAW || 0)));
+  const a = Math.max(0, Math.floor(Number(c.AWAY || 0)));
+  if (h === d && d === a) return null;
+  if (h >= d && h >= a) return "HOME";
+  if (a >= h && a >= d) return "AWAY";
+  return "DRAW";
+}
+
+function updatePoolDomForMatch(matchId) {
+  const id = String(matchId || "");
+  if (!id) return;
+  const pool = getPool(id);
+  const participantsCount =
+    typeof pool.participantsCount === "number" && Number.isFinite(pool.participantsCount)
+      ? Math.max(0, Math.floor(pool.participantsCount))
+      : Object.keys(pool.participants || {}).length;
+  const counts =
+    pool.counts && typeof pool.counts === "object"
+      ? {
+          HOME: Math.max(0, Math.floor(Number(pool.counts.HOME || 0))),
+          DRAW: Math.max(0, Math.floor(Number(pool.counts.DRAW || 0))),
+          AWAY: Math.max(0, Math.floor(Number(pool.counts.AWAY || 0))),
+        }
+      : (() => {
+          const c = { HOME: 0, DRAW: 0, AWAY: 0 };
+          Object.values(pool.participants || {}).forEach((v) => {
+            const p = v?.pick;
+            if (p === "HOME" || p === "DRAW" || p === "AWAY") c[p] += 1;
+          });
+          return c;
+        })();
+  const totalVotes = counts.HOME + counts.DRAW + counts.AWAY;
+  const leader = poolLeaderFromCounts(counts);
+
+  const match = state.schedule.matches.find((m) => m.id === id) || null;
+  const homeLabel = match ? match.home : "";
+  const awayLabel = match ? match.away : "";
+  const drawLabel = t("prediction.draw");
+  const mostLabel = t("prediction.mostBettors");
+
+  const cards = $all(`.predPick[data-match-id="${cssEscapeCompat(id)}"]`);
+  cards.forEach((card) => {
+    const p = card.querySelector(".predPoolRow__v");
+    if (p) p.textContent = formatPts(participantsCount);
+
+    const rows = Array.from(card.querySelectorAll(".predSplitRow"));
+    const base = [
+      { pick: "HOME", label: homeLabel },
+      { pick: "DRAW", label: drawLabel },
+      { pick: "AWAY", label: awayLabel },
+    ];
+    rows.forEach((row, i) => {
+      const metaNum = row.querySelector(".predSplitRow__num");
+      const metaRatio = row.querySelector(".predSplitRow__ratio");
+      const fill = row.querySelector(".predSplitRow__fill");
+      const name = row.querySelector(".predSplitRow__name");
+      const info = base[i] || null;
+      if (!info) return;
+      const n = info.pick === "HOME" ? counts.HOME : info.pick === "AWAY" ? counts.AWAY : counts.DRAW;
+      if (metaNum) metaNum.textContent = formatPts(n);
+      if (metaRatio) metaRatio.textContent = `${pct(n, totalVotes).toFixed(0)}%`;
+      if (fill) fill.style.width = `${pct(n, totalVotes).toFixed(2)}%`;
+      const isLead = leader && leader === info.pick;
+      row.classList.toggle("is-lead", Boolean(isLead));
+      if (name) {
+        const label = info.label || "";
+        if (isLead && label) {
+          name.innerHTML = `${label} <span class="predSplitTag">${mostLabel}</span>`;
+        } else {
+          name.textContent = label;
+        }
+      }
+    });
+  });
+
+  const rows = $all(`.allMatchRow[data-match-id="${cssEscapeCompat(id)}"]`);
+  rows.forEach((row) => {
+    const statVals = row.querySelectorAll(".allMatchRow__statVal");
+    const bettorsEl = statVals && statVals[0] ? statVals[0] : null;
+    const leadEl = statVals && statVals[1] ? statVals[1] : null;
+    if (bettorsEl) bettorsEl.textContent = formatPts(participantsCount);
+    if (leadEl && match) {
+      const homeBettors = counts.HOME;
+      const awayBettors = counts.AWAY;
+      leadEl.textContent = homeBettors === awayBettors ? "--" : homeBettors > awayBettors ? match.home : match.away;
+    }
+  });
+}
+
+function scheduleLeaderboardRefresh() {
+  if (!state.backend.enabled) return;
+  const s = state.backend.stream;
+  if (!s) return;
+  if (s.leaderboardTimer) return;
+  s.leaderboardTimer = window.setTimeout(() => {
+    s.leaderboardTimer = null;
+    backendSyncLeaderboard()
+      .then(() => renderLeaderboard())
+      .catch(() => {});
+  }, 1200);
+}
+
+function backendStartStream() {
+  if (!state.backend.enabled) return;
+  if (state.backend.stream && state.backend.stream.es) return;
+  if (typeof EventSource === "undefined") return;
+  const url = `${state.backend.baseUrl}/v1/stream`;
+  const es = new EventSource(url);
+  const stream = {
+    es,
+    connected: false,
+    lastMsgMs: 0,
+    leaderboardTimer: null,
+  };
+  state.backend.stream = stream;
+
+  es.onopen = () => {
+    stream.connected = true;
+  };
+  es.onerror = () => {
+    stream.connected = false;
+  };
+  es.onmessage = (ev) => {
+    stream.lastMsgMs = Date.now();
+    let data = null;
+    try {
+      data = JSON.parse(String(ev.data || ""));
+    } catch {
+      data = null;
+    }
+    if (!data || typeof data !== "object") return;
+    const type = String(data.type || "");
+    if (type === "pool") {
+      const matchId = String(data.matchId || "");
+      const pool = data.pool && typeof data.pool === "object" ? data.pool : null;
+      if (matchId && pool) {
+        const counts = pool.counts && typeof pool.counts === "object" ? pool.counts : { HOME: 0, DRAW: 0, AWAY: 0 };
+        const participantsCount = typeof pool.participantsCount === "number" ? pool.participantsCount : counts.HOME + counts.DRAW + counts.AWAY;
+        const settled = Boolean(pool.settled);
+        const result = pool.result ? String(pool.result) : null;
+        setPool(matchId, { totals: pool.totals || { HOME: 0, DRAW: 0, AWAY: 0 }, counts, participantsCount, participants: {}, settled, result });
+        updatePoolDomForMatch(matchId);
+      }
+      scheduleLeaderboardRefresh();
+      return;
+    }
+    if (type === "result") {
+      scheduleLeaderboardRefresh();
+      backendSyncAll({ force: true }).catch(() => {});
+      return;
+    }
+    if (type === "leaderboard") {
+      scheduleLeaderboardRefresh();
+      return;
+    }
+  };
 }
 
 async function backendEnsureLogin({ interactive } = {}) {
@@ -1299,7 +1474,7 @@ async function backendSyncMe() {
 
 async function backendSyncLeaderboard() {
   if (!state.backend.enabled) return;
-  const r = await backendFetch("/v1/leaderboard?limit=10");
+  const r = await backendFetch("/v1/leaderboard?limit=10&eligibleMin=20");
   const rows = Array.isArray(r?.rows) ? r.rows : [];
   state.backend.leaderboardRows = rows;
   const addrs = rows.map((x) => normAddress(x.address)).filter(Boolean);
@@ -1468,8 +1643,10 @@ function renderLeaderboard() {
         addr: normAddress(r.address),
         rate: Math.max(0, Math.min(1, Number(r.winRate || 0))),
         total: Math.max(0, Math.floor(Number(r.matches || 0))),
+        settled: Math.max(0, Math.floor(Number(r.settled || 0))),
+        eligible: Boolean(r.eligible),
       }))
-      .filter((r) => r.addr && r.total >= MIN_LEADERBOARD_MATCHES)
+      .filter((r) => r.addr)
       .slice(0, 10);
     if (!rows.length) {
       host.innerHTML = "";
@@ -1478,14 +1655,15 @@ function renderLeaderboard() {
     host.innerHTML = rows
       .map((r, i) => {
         const cls = i === 0 ? "leaderRow is-1" : i === 1 ? "leaderRow is-2" : i === 2 ? "leaderRow is-3" : "leaderRow";
-        const pctText = `${(r.rate * 100).toFixed(1)}%`;
-        const detail = `${r.total}场`;
+        const pctText = r.settled > 0 ? `${(r.rate * 100).toFixed(1)}%` : "--";
+        const detail = state.lang === "zh" ? `${r.settled}/${r.total}场` : `${r.settled}/${r.total}`;
+        const badge = r.eligible ? (i < 3 ? "👑" : "✓") : " ";
         return `
           <li class="${cls}">
             <div class="leaderRow__rank">${i + 1}</div>
             <div class="leaderRow__addr mono">${truncateAddress(r.addr)}</div>
             <div class="leaderRow__pts">${pctText} ${detail}</div>
-            <div class="leaderRow__badge" aria-hidden="true">${i < 3 ? "👑" : " "}</div>
+            <div class="leaderRow__badge" aria-hidden="true">${badge}</div>
           </li>
         `;
       })
@@ -2995,7 +3173,7 @@ function renderAllMatches() {
           }
           const leadCountry = homeBettors === awayBettors ? "--" : homeBettors > awayBettors ? m.home : m.away;
           return `
-            <div class="allMatchRow" data-kickoff="${m.kickoffIso}">
+            <div class="allMatchRow" data-kickoff="${m.kickoffIso}" data-match-id="${m.id}">
               <div class="allMatchRow__time">${m.time}</div>
               <div class="allMatchRow__teams">
                 <span class="allMatchRow__team">
@@ -3686,6 +3864,7 @@ function boot() {
   try {
     state.lang = getInitialLang();
     initBackendState();
+    backendStartStream();
     applyTranslations();
     setupFxReveal();
     setupCoin3d();

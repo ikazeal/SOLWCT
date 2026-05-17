@@ -231,6 +231,25 @@ const scheduleCache = {
   map: new Map(),
 };
 
+const sseClients = new Set();
+
+function sseWrite(res, data) {
+  try {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  } catch {
+  }
+}
+
+function sseBroadcast(data) {
+  for (const res of Array.from(sseClients)) {
+    if (!res || res.writableEnded) {
+      sseClients.delete(res);
+      continue;
+    }
+    sseWrite(res, data);
+  }
+}
+
 async function loadScheduleCache() {
   const now = nowMs();
   if (scheduleCache.loadedAt && now - scheduleCache.loadedAt < 60 * 1000 && scheduleCache.map.size) return scheduleCache.map;
@@ -325,6 +344,7 @@ async function syncAndSettle() {
       "insert into public.match_results(match_id, result, settled_at, updated_at) values ($1, $2, now(), now()) on conflict (match_id) do update set result = excluded.result, updated_at = now()",
       [String(m.id), outcome],
     );
+    sseBroadcast({ type: "result", matchId: String(m.id), result: outcome, ts: nowMs() });
   }
 }
 
@@ -333,6 +353,33 @@ app.use(cors(buildCorsOptions()));
 app.use(express.json({ limit: "128kb" }));
 
 app.get("/health", (req, res) => jsonOk(res, { ok: true }));
+
+app.get("/v1/stream", (req, res) => {
+  res.status(200);
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders?.();
+
+  sseClients.add(res);
+  sseWrite(res, { type: "hello", ts: nowMs() });
+
+  const t = setInterval(() => {
+    try {
+      res.write(":keepalive\n\n");
+    } catch {
+    }
+  }, 25_000);
+
+  req.on("close", () => {
+    clearInterval(t);
+    sseClients.delete(res);
+    try {
+      res.end();
+    } catch {
+    }
+  });
+});
 
 app.get("/v1/nonce", wrap(async (req, res) => {
   const address = normAddress(req.query.address);
@@ -389,12 +436,14 @@ app.get("/v1/me", auth, wrap(async (req, res) => {
 
 app.get("/v1/leaderboard", wrap(async (req, res) => {
   const limit = Math.max(1, Math.min(50, safeInt(req.query.limit, 10)));
+  const eligibleMin = Math.max(1, Math.min(1000, safeInt(req.query.eligibleMin, 20)));
   const q = await dbQuery(
     `
       with stats as (
         select
           p.address as address,
-          count(*) filter (where r.result is not null) as total,
+          count(*) as total,
+          count(*) filter (where r.result is not null) as settled,
           count(*) filter (where r.result is not null and p.pick = r.result) as correct
         from public.predictions p
         left join public.match_results r on r.match_id = p.match_id
@@ -403,11 +452,12 @@ app.get("/v1/leaderboard", wrap(async (req, res) => {
       select
         address,
         total::int as total,
+        settled::int as settled,
         correct::int as correct,
-        case when total > 0 then (correct::float / total) else 0 end as win_rate,
-        case when total > 0 then (correct::float / total) * ln(1 + total) else 0 end as score
+        case when settled > 0 then (correct::float / settled) else 0 end as win_rate,
+        case when settled > 0 then (correct::float / settled) * ln(1 + settled) else 0 end as score
       from stats
-      where total >= 20
+      where total >= 1
       order by score desc, total desc, address asc
       limit $1
     `,
@@ -416,9 +466,11 @@ app.get("/v1/leaderboard", wrap(async (req, res) => {
   const rows = (q.rows || []).map((r) => ({
     address: normAddress(r.address),
     matches: clampInt(r.total, 0),
+    settled: clampInt(r.settled, 0),
     correct: clampInt(r.correct, 0),
     winRate: Number(r.win_rate || 0),
     score: Number(r.score || 0),
+    eligible: clampInt(r.total, 0) >= eligibleMin,
   }));
   jsonOk(res, { rows });
 }));
@@ -589,6 +641,8 @@ app.post("/v1/predictions", auth, wrap(async (req, res) => {
   if (!ins.rows || !ins.rows.length) return jsonErr(res, 400, "already_bet");
 
   const pool = await computePool(matchId);
+  sseBroadcast({ type: "pool", matchId, pool, ts: nowMs() });
+  sseBroadcast({ type: "leaderboard", ts: nowMs() });
   jsonOk(res, { ok: true, pool, prediction: { matchId, pick, createdAt } });
 }));
 
