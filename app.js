@@ -70,6 +70,7 @@ const BET_CLOSE_BEFORE_MS = 5 * 60 * 1000;
 const MIN_LEADERBOARD_MATCHES = 20;
 const DAILY_PRED_LIMIT_NO_HOLD = 1;
 const DAILY_PRED_LIMIT_HOLD = 5;
+const DAILY_PRED_LIMIT_MIN_HOLD = 100000n;
 const BOOST_TIER_1M = 1000000n;
 const BOOST_TIER_5M = 5000000n;
 const BOOST_TIER_10M = 10000000n;
@@ -209,7 +210,7 @@ const I18N = {
     "toast.betClosed": "Predictions close 5 minutes before kickoff.",
     "toast.insufficientPoints": "",
     "toast.alreadyBet": "You already submitted a prediction for this match.",
-    "toast.dailyLimit": "Daily limit reached: {limit}/day. Hold WCT to unlock {holdLimit}/day.",
+    "toast.dailyLimit": "Daily limit reached: {limit}/day. Hold ≥100,000 WCT to unlock {holdLimit}/day.",
     "toast.connectToClaim": "Connect wallet to claim rewards.",
     "toast.noRewards": "No rewards available yet.",
     "toast.rewardsClaimed": "Rewards claimed.",
@@ -343,7 +344,7 @@ const I18N = {
     "toast.betClosed": "比赛开始前 5 分钟停止预测。",
     "toast.insufficientPoints": "",
     "toast.alreadyBet": "这场比赛你已经提交过预测。",
-    "toast.dailyLimit": "今日预测次数已用完：{limit}次/天。持有 WCT 可提升至 {holdLimit}次/天。",
+    "toast.dailyLimit": "今日预测次数已用完：{limit}次/天。持有 ≥100,000 WCT 可提升至 {holdLimit}次/天。",
     "toast.connectToClaim": "请先连接钱包再领取奖励。",
     "toast.noRewards": "暂时没有可领取奖励。",
     "toast.rewardsClaimed": "奖励已领取。",
@@ -1051,9 +1052,9 @@ function bumpTodayPredictionCount(addr) {
   localStorage.setItem(k, String(next));
 }
 
-function getDailyPredictionLimit(wctBalanceRaw) {
-  const w = typeof wctBalanceRaw === "bigint" ? wctBalanceRaw : 0n;
-  return w > 0n ? DAILY_PRED_LIMIT_HOLD : DAILY_PRED_LIMIT_NO_HOLD;
+function getDailyPredictionLimit(wholeWct) {
+  const w = typeof wholeWct === "bigint" ? wholeWct : 0n;
+  return w >= DAILY_PRED_LIMIT_MIN_HOLD ? DAILY_PRED_LIMIT_HOLD : DAILY_PRED_LIMIT_NO_HOLD;
 }
 
 function getTreasuryAddress() {
@@ -1613,7 +1614,7 @@ function updateWalletUI() {
     if (disconnectBtn) disconnectBtn.hidden = false;
     if (connectBtn) connectBtn.setAttribute("aria-expanded", String(!!state.wallet.walletMenuOpen));
     const wholeWct = getWctWholeBalance();
-    const limit = getDailyPredictionLimit(state.wallet.wctBalanceRaw);
+    const limit = getDailyPredictionLimit(wholeWct);
     const used = getTodayPredictionCount(state.wallet.address);
     const left = Math.max(0, limit - used);
     const boost = getPredictionBoost(wholeWct);
@@ -3273,7 +3274,7 @@ async function placePrediction(matchId, pick) {
   }
 
   const wholeWct = getWctWholeBalance();
-  const limit = getDailyPredictionLimit(state.wallet.wctBalanceRaw);
+  const limit = getDailyPredictionLimit(wholeWct);
   const used = getTodayPredictionCount(addr);
   if (used >= limit) {
     toast(t("toast.dailyLimit", { limit, holdLimit: DAILY_PRED_LIMIT_HOLD }));
