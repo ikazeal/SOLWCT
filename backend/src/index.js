@@ -59,6 +59,12 @@ function jsonErr(res, status, message) {
   res.status(status).json({ error: String(message || "error") });
 }
 
+function wrap(handler) {
+  return (req, res, next) => {
+    Promise.resolve(handler(req, res, next)).catch(next);
+  };
+}
+
 function buildLoginMessage({ address, nonce, issuedAt, origin }) {
   const o = String(origin || "WCT");
   return `WCT Login\nOrigin: ${o}\nAddress: ${address}\nNonce: ${nonce}\nIssued At: ${new Date(issuedAt).toISOString()}`;
@@ -220,20 +226,24 @@ function buildCorsOptions() {
 }
 
 async function auth(req, res, next) {
-  const raw = String(req.headers.authorization || "");
-  const token = raw.startsWith("Bearer ") ? raw.slice("Bearer ".length).trim() : "";
-  if (!token) return jsonErr(res, 401, "missing_token");
-  const now = nowMs();
-  const row = await dbQuery("select token, address, extract(epoch from expires_at)*1000 as expires_at_ms from public.sessions where token = $1 limit 1", [token]);
-  const sess = row.rows && row.rows[0] ? row.rows[0] : null;
-  if (!sess) return jsonErr(res, 401, "invalid_token");
-  const expiresAt = clampInt(sess.expires_at_ms, 0);
-  if (expiresAt <= now) {
-    await dbQuery("delete from public.sessions where token = $1", [token]);
-    return jsonErr(res, 401, "expired_token");
+  try {
+    const raw = String(req.headers.authorization || "");
+    const token = raw.startsWith("Bearer ") ? raw.slice("Bearer ".length).trim() : "";
+    if (!token) return jsonErr(res, 401, "missing_token");
+    const now = nowMs();
+    const row = await dbQuery("select token, address, extract(epoch from expires_at)*1000 as expires_at_ms from public.sessions where token = $1 limit 1", [token]);
+    const sess = row.rows && row.rows[0] ? row.rows[0] : null;
+    if (!sess) return jsonErr(res, 401, "invalid_token");
+    const expiresAt = clampInt(sess.expires_at_ms, 0);
+    if (expiresAt <= now) {
+      await dbQuery("delete from public.sessions where token = $1", [token]);
+      return jsonErr(res, 401, "expired_token");
+    }
+    req.auth = { token, address: normAddress(sess.address) };
+    return next();
+  } catch {
+    return jsonErr(res, 503, "db_unavailable");
   }
-  req.auth = { token, address: normAddress(sess.address) };
-  return next();
 }
 
 async function syncAndSettle() {
@@ -282,7 +292,7 @@ app.use(express.json({ limit: "128kb" }));
 
 app.get("/health", (req, res) => jsonOk(res, { ok: true }));
 
-app.get("/v1/nonce", async (req, res) => {
+app.get("/v1/nonce", wrap(async (req, res) => {
   const address = normAddress(req.query.address);
   if (!isAddress(address)) return jsonErr(res, 400, "invalid_address");
   const origin = String(req.headers.origin || req.headers.host || "WCT");
@@ -295,9 +305,9 @@ app.get("/v1/nonce", async (req, res) => {
   );
   const message = buildLoginMessage({ address, nonce, issuedAt, origin });
   jsonOk(res, { address, nonce, issuedAt, expiresAt, message });
-});
+}));
 
-app.post("/v1/login", async (req, res) => {
+app.post("/v1/login", wrap(async (req, res) => {
   const address = normAddress(req.body?.address);
   const signature = String(req.body?.signature || "");
   if (!isAddress(address)) return jsonErr(res, 400, "invalid_address");
@@ -329,14 +339,14 @@ app.post("/v1/login", async (req, res) => {
     [token, address, createdAt, expiresAt],
   );
   jsonOk(res, { token, address, expiresAt });
-});
+}));
 
-app.get("/v1/me", auth, async (req, res) => {
+app.get("/v1/me", auth, wrap(async (req, res) => {
   const address = req.auth.address;
   jsonOk(res, { address });
-});
+}));
 
-app.get("/v1/leaderboard", async (req, res) => {
+app.get("/v1/leaderboard", wrap(async (req, res) => {
   const limit = Math.max(1, Math.min(50, safeInt(req.query.limit, 10)));
   const q = await dbQuery(
     `
@@ -370,9 +380,9 @@ app.get("/v1/leaderboard", async (req, res) => {
     score: Number(r.score || 0),
   }));
   jsonOk(res, { rows });
-});
+}));
 
-app.get("/v1/pools", async (req, res) => {
+app.get("/v1/pools", wrap(async (req, res) => {
   const raw = String(req.query.matchIds || "");
   const ids = raw
     .split(",")
@@ -418,7 +428,7 @@ app.get("/v1/pools", async (req, res) => {
     };
   });
   jsonOk(res, { pools });
-});
+}));
 
 async function listPredictionsForAddress(address, limit) {
   const q = await dbQuery(
@@ -451,19 +461,19 @@ async function listPredictionsForAddress(address, limit) {
   }));
 }
 
-app.get("/v1/predictions", auth, async (req, res) => {
+app.get("/v1/predictions", auth, wrap(async (req, res) => {
   const address = req.auth.address;
   const limit = Math.max(1, Math.min(200, safeInt(req.query.limit, 100)));
   const rows = await listPredictionsForAddress(address, limit);
   jsonOk(res, { rows });
-});
+}));
 
-app.get("/v1/bets", auth, async (req, res) => {
+app.get("/v1/bets", auth, wrap(async (req, res) => {
   const address = req.auth.address;
   const limit = Math.max(1, Math.min(200, safeInt(req.query.limit, 100)));
   const rows = await listPredictionsForAddress(address, limit);
   jsonOk(res, { rows });
-});
+}));
 
 async function countTodayPredictions(address) {
   const q = await dbQuery(
@@ -501,7 +511,7 @@ async function computePool(matchId) {
   };
 }
 
-app.post("/v1/predictions", auth, async (req, res) => {
+app.post("/v1/predictions", auth, wrap(async (req, res) => {
   const address = req.auth.address;
   const matchId = String(req.body?.matchId || "");
   const pick = String(req.body?.pick || "");
@@ -538,11 +548,17 @@ app.post("/v1/predictions", auth, async (req, res) => {
 
   const pool = await computePool(matchId);
   jsonOk(res, { ok: true, pool, prediction: { matchId, pick, createdAt } });
-});
+}));
 
 setInterval(() => {
-  syncAndSettle();
+  syncAndSettle().catch(() => {});
 }, 60 * 1000);
+
+app.use((err, req, res, next) => {
+  const msg = err && err.message ? String(err.message) : "backend_error";
+  if (msg.toLowerCase().includes("connect")) return jsonErr(res, 503, "db_unavailable");
+  return jsonErr(res, 503, "backend_error");
+});
 
 app.listen(PORT, () => {
   process.stdout.write(`wct-backend listening on :${PORT}\n`);
