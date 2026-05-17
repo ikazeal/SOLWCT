@@ -3,6 +3,8 @@ const state = {
   wallet: {
     address: null,
     connected: false,
+    manualConnected: false,
+    walletMenuOpen: false,
     chainId: null,
     wctDecimals: null,
     wctBalanceRaw: 0n,
@@ -65,6 +67,12 @@ const POINTS_INITIAL = 5000;
 const BET_MIN = 100;
 const BET_MAX = 500;
 const BET_CLOSE_BEFORE_MS = 5 * 60 * 1000;
+const MIN_LEADERBOARD_MATCHES = 20;
+const DAILY_PRED_LIMIT_NO_HOLD = 1;
+const DAILY_PRED_LIMIT_HOLD = 5;
+const BOOST_TIER_1M = 1000000n;
+const BOOST_TIER_5M = 5000000n;
+const BOOST_TIER_10M = 10000000n;
 const WCT_BONUS_UNIT = 100000n;
 const WCT_BONUS_POINTS = 10n;
 const WCT_BONUS_TIER_5M = 5000000n;
@@ -79,6 +87,7 @@ const I18N = {
     "nav.tokenomics": "TOKENOMICS",
     "nav.matches": "MATCHES",
     "nav.prediction": "PREDICTION",
+    "wallet.myPredictions": "MY PREDICTIONS",
     "nav.whitepaper": "WHITEPAPER",
     "nav.leaderboard": "LEADERBOARD",
     "nav.rewards": "REWARDS",
@@ -116,8 +125,8 @@ const I18N = {
     "matches.groupStage": "GROUP STAGE",
     "matches.predictNow": "PREDICT NOW",
     "matches.predictTitle": "MATCH PREDICTION",
-    "matches.bettors": "BETTORS",
-    "matches.lead": "LEAD",
+    "matches.bettors": "SUPPORTERS",
+    "matches.lead": "LEADING",
     "matches.daysLeft2": "2 Days Left",
     "stage.all": "ALL",
     "stage.group": "GROUP",
@@ -139,7 +148,7 @@ const I18N = {
     "rewards.poolTitle": "REWARDS POOL",
     "rewards.totalRewards": "POOL (BNB)",
     "rewards.viewRewards": "VIEW REWARDS",
-    "rewards.rulesHtml": "<b>Prize rules</b>: Top 5 share the prize pool — #1 40%, #2 20%, #3 10%, #4 5%, #5 5%. Remaining 20% is used for marketing and extra rewards for correct picks. <a href=\"./whitepaper.html\">Details</a>.",
+    "rewards.rulesHtml": "<b>Prize rules</b>: Top 5 share the prize pool — #1 40%, #2 20%, #3 10%, #4 5%, #5 5%. <b>Tax plan</b>: 60% of trading tax goes to prize-related uses (20% marketing, 40% rewards). Remaining 40%: 30% buyback & burn, 10% liquidity. <a href=\"./whitepaper.html\">Details</a>.",
     "rewards.modalTitle": "Your Rewards",
     "rewards.available": "Available",
     "rewards.claimed": "Claimed",
@@ -149,21 +158,23 @@ const I18N = {
     "prediction.title": "PREDICTION",
     "prediction.submit": "SUBMIT",
     "prediction.draw": "DRAW",
-    "prediction.betPoints": "BET POINTS",
+    "prediction.betPoints": "",
     "prediction.pool": "POOL",
     "prediction.participants": "PARTICIPANTS",
-    "prediction.splitTitle": "BET SPLIT",
-    "prediction.bettors": "BETTORS",
-    "prediction.rewardRatio": "REWARD",
+    "prediction.splitTitle": "SUPPORT SPLIT",
+    "prediction.bettors": "SUPPORTERS",
+    "prediction.supportRate": "SUPPORT",
+    "prediction.rewardRatio": "",
     "prediction.mostBettors": "MOST",
-    "prediction.rangeHint": "Min 100, Max 500 per match",
+    "prediction.rangeHint": "",
     "prediction.hintDisconnected": "Connect wallet to submit predictions.",
-    "prediction.hintConnected": "Submit your predictions to earn points and rewards.",
-    "points.label": "POINTS",
-    "bets.title": "MY BETS",
-    "bets.hintDisconnected": "Connect wallet to view your bet history.",
-    "bets.hintConnected": "No bets yet. Place a bet below.",
-    "bets.empty": "No bet records yet.",
+    "prediction.hintConnected": "Submit predictions to join the win-rate leaderboard.",
+    "prediction.limitBoost": "Today {left}/{limit} · Boost {boost}X",
+    "points.label": "",
+    "bets.title": "MY PREDICTIONS",
+    "bets.hintDisconnected": "Connect wallet to view your prediction history.",
+    "bets.hintConnected": "No predictions yet. Submit below.",
+    "bets.empty": "No prediction records yet.",
     "bets.used": "USED",
     "bets.bonus": "BONUS",
     "bets.base": "BASE",
@@ -183,7 +194,7 @@ const I18N = {
     "toast.walletRejected": "Wallet connection rejected.",
     "toast.backendUnavailable": "Backend unavailable. Using local demo storage.",
     "toast.backendLoginFailed": "Backend login failed. Using local demo storage.",
-    "toast.backendBetFailed": "Bet failed. Please try again.",
+    "toast.backendBetFailed": "Submit failed. Please try again.",
     "toast.networkAddRejected": "Network add rejected.",
     "toast.networkSwitchRejected": "Network switch rejected.",
     "toast.switchToBsc": "Switch to BNB Chain for full functionality.",
@@ -191,11 +202,12 @@ const I18N = {
     "toast.copyFailed": "Copy failed.",
     "toast.connectToSubmit": "Connect wallet to submit predictions.",
     "toast.predSubmitted": "Prediction submitted: {pick}",
-    "toast.betPlaced": "Bet placed.",
-    "toast.betRange": "Bet must be between {min} and {max} points.",
-    "toast.betClosed": "Betting closes 5 minutes before kickoff.",
-    "toast.insufficientPoints": "Insufficient points.",
-    "toast.alreadyBet": "You already placed a bet for this match.",
+    "toast.betPlaced": "",
+    "toast.betRange": "",
+    "toast.betClosed": "Predictions close 5 minutes before kickoff.",
+    "toast.insufficientPoints": "",
+    "toast.alreadyBet": "You already submitted a prediction for this match.",
+    "toast.dailyLimit": "Daily limit reached: {limit}/day. Hold WCT to unlock {holdLimit}/day.",
     "toast.connectToClaim": "Connect wallet to claim rewards.",
     "toast.noRewards": "No rewards available yet.",
     "toast.rewardsClaimed": "Rewards claimed.",
@@ -208,15 +220,16 @@ const I18N = {
     "nav.home": "首页",
     "nav.tokenomics": "代币经济",
     "nav.matches": "赛程",
-    "nav.prediction": "竞猜",
+    "nav.prediction": "预测",
+    "wallet.myPredictions": "我的预测",
     "nav.whitepaper": "白皮书",
     "nav.leaderboard": "排行榜",
     "nav.rewards": "奖励",
     "nav.roadmap": "路线图",
     "hero.kicker": "",
-    "hero.desc": "首个为世界杯打造的 Meme 代币。<br />竞猜 · 对战 · 赢取 BNB 奖励。",
+    "hero.desc": "首个为世界杯打造的 Meme 代币。<br />预测 · 对战 · 赢取 BNB 奖励。",
     "hero.buyNow": "立即购买",
-    "hero.joinPrediction": "参与竞猜",
+    "hero.joinPrediction": "参与预测",
     "overview.title": "代币概览",
     "overview.contract": "合约地址",
     "overview.network": "网络",
@@ -224,7 +237,7 @@ const I18N = {
     "overview.balances": "钱包余额",
     "overview.bnbBalance": "BNB",
     "overview.wctBalance": "WCT",
-    "overview.holdBonusPoints": "持仓额外积分",
+    "overview.holdBonusPoints": "",
     "overview.tokenPrice": "代币价格",
     "overview.marketCap": "市值",
     "overview.volume24h": "24小时成交量",
@@ -244,10 +257,10 @@ const I18N = {
     "matches.loadFailed": "赛程加载失败。",
     "matches.hint": "按阶段筛选 · 按日期查看",
     "matches.groupStage": "小组赛",
-    "matches.predictNow": "立即竞猜",
-    "matches.predictTitle": "比赛竞猜",
-    "matches.bettors": "人数",
-    "matches.lead": "领先",
+    "matches.predictNow": "立即预测",
+    "matches.predictTitle": "比赛预测",
+    "matches.bettors": "支持人数",
+    "matches.lead": "支持领先",
     "matches.daysLeft2": "剩余 2 天",
     "stage.all": "全部",
     "stage.group": "小组赛",
@@ -265,35 +278,35 @@ const I18N = {
     "time.mins": "分",
     "time.secs": "秒",
     "common.viewAll": "查看全部",
-    "leaderboard.title": "竞猜排行榜",
+    "leaderboard.title": "预测排行榜",
     "rewards.poolTitle": "奖励池",
     "rewards.totalRewards": "奖池（BNB）",
     "rewards.viewRewards": "查看奖励",
-    "rewards.rulesHtml": "<b>获奖机制</b>：前 5 名瓜分奖池——第 1 名 40%，第 2 名 20%，第 3 名 10%，第 4/5 名各 5%。剩余 20% 用于活动营销与押中额外奖励。<a href=\"./whitepaper.html\">查看详情</a>。",
+    "rewards.rulesHtml": "<b>获奖机制</b>：前 5 名瓜分奖池——第 1 名 40%，第 2 名 20%，第 3 名 10%，第 4/5 名各 5%。<b>税费规划</b>：交易税费的 60% 用于奖池相关（20% 营销、40% 奖励）；剩余 40%（30% 回购销毁、10% 流动性）。<a href=\"./whitepaper.html\">查看详情</a>。",
     "rewards.modalTitle": "我的奖励",
     "rewards.available": "可领取",
     "rewards.claimed": "已领取",
     "rewards.claim": "领取",
     "rewards.hintDisconnected": "连接钱包后可领取奖励。",
-    "rewards.hintConnected": "奖励会在竞猜结算后更新。",
-    "prediction.title": "竞猜",
+    "rewards.hintConnected": "奖励会在预测结算后更新。",
+    "prediction.title": "预测",
     "prediction.submit": "提交",
     "prediction.draw": "平局",
-    "prediction.betPoints": "下注积分",
+    "prediction.betPoints": "",
     "prediction.pool": "奖池",
     "prediction.participants": "人数",
-    "prediction.splitTitle": "押注比例",
+    "prediction.splitTitle": "支持比例",
     "prediction.bettors": "人数",
-    "prediction.rewardRatio": "奖励比例",
+    "prediction.supportRate": "支持率",
     "prediction.mostBettors": "最多",
-    "prediction.rangeHint": "单场最低 100 分，最高 500 分",
-    "prediction.hintDisconnected": "连接钱包后可提交竞猜。",
-    "prediction.hintConnected": "提交竞猜以获得积分与奖励。",
-    "points.label": "积分",
-    "bets.title": "我的下注",
-    "bets.hintDisconnected": "连接钱包后可查看下注记录。",
-    "bets.hintConnected": "暂无下注记录，去下方进行下注。",
-    "bets.empty": "暂无下注记录。",
+    "prediction.hintDisconnected": "连接钱包后可提交预测。",
+    "prediction.hintConnected": "提交预测后参与胜率排行榜。",
+    "prediction.limitBoost": "今日剩余 {left}/{limit} · 持币奖励加成 {boost}X",
+    "points.label": "",
+    "bets.title": "我的预测",
+    "bets.hintDisconnected": "连接钱包后可查看预测记录。",
+    "bets.hintConnected": "暂无预测记录，去下方进行预测。",
+    "bets.empty": "暂无预测记录。",
     "bets.used": "使用",
     "bets.bonus": "额外",
     "bets.base": "基础",
@@ -301,7 +314,7 @@ const I18N = {
     "bets.win": "赢",
     "bets.lose": "输",
     "roadmap.title": "路线图",
-    "roadmap.copy": "启动 · 上线交易所 · 竞猜赛季 · 奖励 · 社区",
+    "roadmap.copy": "启动 · 上线交易所 · 预测赛季 · 奖励 · 社区",
     "social.follow": "关注我们",
     "social.open": "打开",
     "wallet.connect": "连接钱包",
@@ -313,19 +326,20 @@ const I18N = {
     "toast.walletRejected": "用户取消连接。",
     "toast.backendUnavailable": "后端不可用，已使用本地演示存储。",
     "toast.backendLoginFailed": "后端登录失败，已使用本地演示存储。",
-    "toast.backendBetFailed": "下注失败，请重试。",
+    "toast.backendBetFailed": "提交失败，请重试。",
     "toast.networkAddRejected": "已取消添加网络。",
     "toast.networkSwitchRejected": "已取消切换网络。",
     "toast.switchToBsc": "请切换到 BNB 链以使用完整功能。",
     "toast.contractCopied": "合约地址已复制。",
     "toast.copyFailed": "复制失败。",
-    "toast.connectToSubmit": "请先连接钱包再提交竞猜。",
-    "toast.predSubmitted": "竞猜已提交：{pick}",
-    "toast.betPlaced": "下注成功。",
-    "toast.betRange": "下注范围需在 {min}-{max} 积分之间。",
-    "toast.betClosed": "比赛开始前 5 分钟停止押注。",
-    "toast.insufficientPoints": "积分不足。",
-    "toast.alreadyBet": "这场比赛你已经下注过了。",
+    "toast.connectToSubmit": "请先连接钱包再提交预测。",
+    "toast.predSubmitted": "预测已提交：{pick}",
+    "toast.betPlaced": "",
+    "toast.betRange": "",
+    "toast.betClosed": "比赛开始前 5 分钟停止预测。",
+    "toast.insufficientPoints": "",
+    "toast.alreadyBet": "这场比赛你已经提交过预测。",
+    "toast.dailyLimit": "今日预测次数已用完：{limit}次/天。持有 WCT 可提升至 {holdLimit}次/天。",
     "toast.connectToClaim": "请先连接钱包再领取奖励。",
     "toast.noRewards": "暂时没有可领取奖励。",
     "toast.rewardsClaimed": "奖励已领取。",
@@ -987,6 +1001,57 @@ function isHexAddress(addr) {
   return /^0x[0-9a-fA-F]{40}$/.test(String(addr || ""));
 }
 
+function pow10BigInt(d) {
+  const n = Math.max(0, Math.floor(Number(d || 0)));
+  let r = 1n;
+  for (let i = 0; i < n; i++) r *= 10n;
+  return r;
+}
+
+function getWctWholeBalance() {
+  const bal = typeof state.wallet.wctBalanceRaw === "bigint" ? state.wallet.wctBalanceRaw : 0n;
+  const dec = Math.max(0, Math.floor(Number(state.wallet.wctDecimals ?? 18)));
+  return bal / pow10BigInt(dec);
+}
+
+function getPredictionBoost(wholeWct) {
+  const w = typeof wholeWct === "bigint" ? wholeWct : 0n;
+  if (w >= BOOST_TIER_10M) return 2;
+  if (w >= BOOST_TIER_5M) return 1.5;
+  if (w >= BOOST_TIER_1M) return 1;
+  return 1;
+}
+
+function dailyPredKey(addr) {
+  const a = normAddress(addr);
+  if (!a) return null;
+  const d = new Date();
+  const yyyy = String(d.getFullYear());
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `wct_pred_day_${a}_${yyyy}${mm}${dd}`;
+}
+
+function getTodayPredictionCount(addr) {
+  const k = dailyPredKey(addr);
+  if (!k) return 0;
+  const raw = localStorage.getItem(k);
+  const n = raw ? Number(raw) : NaN;
+  return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+}
+
+function bumpTodayPredictionCount(addr) {
+  const k = dailyPredKey(addr);
+  if (!k) return;
+  const next = getTodayPredictionCount(addr) + 1;
+  localStorage.setItem(k, String(next));
+}
+
+function getDailyPredictionLimit(wholeWct) {
+  const w = typeof wholeWct === "bigint" ? wholeWct : 0n;
+  return w > 0n ? DAILY_PRED_LIMIT_HOLD : DAILY_PRED_LIMIT_NO_HOLD;
+}
+
 function getTreasuryAddress() {
   const fromLs = (localStorage.getItem(TREASURY_STORAGE_KEY) || "").trim();
   const meta = document.querySelector('meta[name="wct-treasury"]');
@@ -1127,10 +1192,6 @@ async function backendSyncMe() {
   const addr = normAddress(state.wallet.address);
   const me = await backendFetch("/v1/me");
   if (!me) return;
-  if (typeof me.basePoints === "number") setPoints(addr, me.basePoints);
-  if (typeof me.rankPoints === "number") setRankPoints(addr, me.rankPoints);
-  if (typeof me.bonusSpent === "number") setBonusSpent(addr, me.bonusSpent);
-  if (typeof me.bonusComputed === "number") setBonusComputed(addr, me.bonusComputed);
   trackLeaderboardAddress(addr);
 }
 
@@ -1140,10 +1201,6 @@ async function backendSyncLeaderboard() {
   const rows = Array.isArray(r?.rows) ? r.rows : [];
   const addrs = rows.map((x) => normAddress(x.address)).filter(Boolean);
   localStorage.setItem(leaderboardIndexKey(), JSON.stringify(addrs));
-  rows.forEach((x) => {
-    if (!x || !x.address) return;
-    setRankPoints(x.address, x.rankPoints || 0);
-  });
 }
 
 async function backendSyncPools() {
@@ -1217,7 +1274,6 @@ async function backendSyncAll({ force } = {}) {
     await backendSyncLeaderboard();
     await backendSyncPools();
     if (state.wallet.address && state.backend.authed) await backendSyncBets();
-    updatePointsUI();
     renderMyBets();
     renderLeaderboard();
     renderPredictionMatches();
@@ -1301,21 +1357,44 @@ function renderLeaderboard() {
   const list = getLeaderboardIndex();
   if (state.wallet.address) trackLeaderboardAddress(state.wallet.address);
   const addrs = getLeaderboardIndex();
+  const stats = (addr) => {
+    const bets = getUserBets(addr);
+    const ids = Object.keys(bets || {});
+    let total = 0;
+    let correct = 0;
+    ids.forEach((id) => {
+      const b = bets[id] || {};
+      const result = b.result || null;
+      const pick = b.pick || null;
+      if (!result || !pick) return;
+      total += 1;
+      if (pick === result) correct += 1;
+    });
+    const rate = total > 0 ? correct / total : 0;
+    const score = total > 0 ? rate * Math.log1p(total) : 0;
+    return { total, correct, rate, score };
+  };
   const rows = addrs
-    .map((a) => ({ addr: a, pts: getRankPoints(a) }))
-    .sort((x, y) => y.pts - x.pts || x.addr.localeCompare(y.addr))
+    .map((a) => ({ addr: a, ...stats(a) }))
+    .filter((r) => r.total >= MIN_LEADERBOARD_MATCHES)
+    .sort((x, y) => y.score - x.score || y.rate - x.rate || y.correct - x.correct || y.total - x.total || x.addr.localeCompare(y.addr))
     .slice(0, 10);
 
-  if (!rows.length) return;
+  if (!rows.length) {
+    host.innerHTML = "";
+    return;
+  }
 
   host.innerHTML = rows
     .map((r, i) => {
       const cls = i === 0 ? "leaderRow is-1" : i === 1 ? "leaderRow is-2" : i === 2 ? "leaderRow is-3" : "leaderRow";
+      const pctText = `${(r.rate * 100).toFixed(1)}%`;
+      const detail = `${r.total}场`;
       return `
         <li class="${cls}">
           <div class="leaderRow__rank">${i + 1}</div>
           <div class="leaderRow__addr mono">${truncateAddress(r.addr)}</div>
-          <div class="leaderRow__pts">${formatPts(r.pts)} PTS</div>
+          <div class="leaderRow__pts">${pctText} ${detail}</div>
           <div class="leaderRow__badge" aria-hidden="true">${i < 3 ? "👑" : " "}</div>
         </li>
       `;
@@ -1411,46 +1490,19 @@ function computeWctBonusPoints(balanceRaw, decimals) {
 }
 
 function syncBonusPointsFromWallet() {
-  const addr = state.wallet.address;
-  if (!addr) return;
-  const computed = computeWctBonusPoints(state.wallet.wctBalanceRaw, state.wallet.wctDecimals ?? 18);
-  setBonusComputed(addr, computed);
-  updatePointsUI();
-  renderWalletBalanceExtras();
+  return;
 }
 
 function initPointsIfNeeded(addr) {
-  const k = pointsKey(addr);
-  if (!k) return;
-  if (localStorage.getItem(k) === null) {
-    localStorage.setItem(k, String(POINTS_INITIAL));
-  }
+  return;
 }
 
 function renderWalletBalanceExtras() {
-  if (!state.wallet.address) {
-    setText("wctBonusPts", "--");
-    return;
-  }
-  initPointsIfNeeded(state.wallet.address);
-  const bonusAvail = getBonusAvailable(state.wallet.address);
-  setText("wctBonusPts", `+${formatPts(bonusAvail)} PTS`);
+  return;
 }
 
 function updatePointsUI() {
-  const pill = $("#pointsPill");
-  const val = $("#pointsValue");
-  if (!pill || !val) return;
-  if (!state.wallet.address) {
-    pill.hidden = true;
-    val.textContent = "0";
-    renderWalletBalanceExtras();
-    return;
-  }
-  initPointsIfNeeded(state.wallet.address);
-  pill.hidden = false;
-  val.textContent = String(getTotalPoints(state.wallet.address));
-  renderWalletBalanceExtras();
+  return;
 }
 
 function hexToBigInt(hex) {
@@ -1490,7 +1542,6 @@ async function fetchWalletBalances() {
     setText("wctBalance", "--");
     setText("wctBalanceHero", "--");
     state.wallet.wctBalanceRaw = 0n;
-    renderWalletBalanceExtras();
     return;
   }
   const now = Date.now();
@@ -1505,8 +1556,6 @@ async function fetchWalletBalances() {
       setText("wctBalance", "--");
       setText("wctBalanceHero", "--");
       state.wallet.wctBalanceRaw = 0n;
-      setBonusComputed(addr, 0);
-      renderWalletBalanceExtras();
       return;
     }
   } catch {
@@ -1533,45 +1582,54 @@ async function fetchWalletBalances() {
     state.wallet.wctBalanceRaw = bal;
     setText("wctBalance", formatUnitsShort(bal, state.wallet.wctDecimals, 6));
     setText("wctBalanceHero", formatUnitsShort(bal, state.wallet.wctDecimals, 6));
-    syncBonusPointsFromWallet();
   } catch {
     setText("wctBalance", "--");
     setText("wctBalanceHero", "--");
     state.wallet.wctBalanceRaw = 0n;
-    setBonusComputed(addr, 0);
-    updatePointsUI();
   }
+  updateWalletUI();
 }
 
 function updateWalletUI() {
   const label = $("#walletBtnLabel");
   const disconnectBtn = $("#disconnectWalletBtn");
+  const menu = $("#walletMenu");
+  const connectBtn = $("#connectWalletBtn");
   const hint = $("#predictionHint");
   const matchesHint = $("#matchesPredictHint");
   const betsHint = $("#betsHint");
   const claimHint = $("#claimHint");
   const claimBtn = $("#claimRewardsBtn");
 
-  const isConnected = !!(state.wallet.address && state.wallet.connected);
+  const isConnected = !!(state.wallet.address && state.wallet.connected && state.wallet.manualConnected);
 
   if (isConnected) {
     if (label) label.textContent = truncateAddress(state.wallet.address);
+    if (menu) menu.hidden = !state.wallet.walletMenuOpen;
     if (disconnectBtn) disconnectBtn.hidden = false;
-    if (hint) hint.textContent = t("prediction.hintConnected");
-    if (matchesHint) matchesHint.textContent = t("prediction.hintConnected");
+    if (connectBtn) connectBtn.setAttribute("aria-expanded", String(!!state.wallet.walletMenuOpen));
+    const wholeWct = getWctWholeBalance();
+    const limit = getDailyPredictionLimit(wholeWct);
+    const used = getTodayPredictionCount(state.wallet.address);
+    const left = Math.max(0, limit - used);
+    const boost = getPredictionBoost(wholeWct);
+    const info = t("prediction.limitBoost", { left, limit, boost });
+    if (hint) hint.textContent = `${t("prediction.hintConnected")} · ${info}`;
+    if (matchesHint) matchesHint.textContent = `${t("prediction.hintConnected")} · ${info}`;
     if (betsHint) betsHint.textContent = t("bets.hintConnected");
     if (claimHint) claimHint.textContent = t("rewards.hintConnected");
     if (claimBtn) claimBtn.disabled = false;
   } else {
     if (label) label.textContent = t("wallet.connect");
+    if (menu) menu.hidden = true;
     if (disconnectBtn) disconnectBtn.hidden = true;
+    if (connectBtn) connectBtn.setAttribute("aria-expanded", "false");
     if (hint) hint.textContent = t("prediction.hintDisconnected");
     if (matchesHint) matchesHint.textContent = t("prediction.hintDisconnected");
     if (betsHint) betsHint.textContent = t("bets.hintDisconnected");
     if (claimHint) claimHint.textContent = t("rewards.hintDisconnected");
     if (claimBtn) claimBtn.disabled = false;
   }
-  updatePointsUI();
   renderMyBets();
   renderLeaderboard();
 }
@@ -1628,6 +1686,8 @@ async function connectWallet() {
     const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
     state.wallet.address = accounts && accounts[0] ? accounts[0] : null;
     state.wallet.connected = !!state.wallet.address;
+    state.wallet.manualConnected = !!state.wallet.address;
+    state.wallet.walletMenuOpen = false;
     state.wallet.wctDecimals = null;
     state.wallet.wctBalanceRaw = 0n;
     state.wallet.lastBalanceSyncMs = 0;
@@ -1647,6 +1707,8 @@ async function connectWallet() {
 function disconnectWallet() {
   state.wallet.address = null;
   state.wallet.connected = false;
+  state.wallet.manualConnected = false;
+  state.wallet.walletMenuOpen = false;
   state.wallet.wctDecimals = null;
   state.wallet.wctBalanceRaw = 0n;
   state.wallet.lastBalanceSyncMs = 0;
@@ -1654,7 +1716,6 @@ function disconnectWallet() {
   setText("bnbBalance", "--");
   setText("wctBalance", "--");
   setText("wctBalanceHero", "--");
-  setText("wctBonusPts", "--");
   updateWalletUI();
   toast(t("toast.walletDisconnected"));
 }
@@ -1664,6 +1725,12 @@ function setupWalletListeners() {
   window.ethereum.on("accountsChanged", (accounts) => {
     state.wallet.address = accounts && accounts[0] ? accounts[0] : null;
     state.wallet.connected = !!state.wallet.address;
+    if (!state.wallet.address) {
+      state.wallet.manualConnected = false;
+      state.wallet.walletMenuOpen = false;
+    } else if (!state.wallet.manualConnected) {
+      state.wallet.walletMenuOpen = false;
+    }
     state.wallet.wctDecimals = null;
     state.wallet.wctBalanceRaw = 0n;
     state.wallet.lastBalanceSyncMs = 0;
@@ -1726,13 +1793,18 @@ function generateSeries(range) {
 
   const base = 0.00011 + rnd() * 0.00003;
   let price = base;
+  let trend = cfg.drift * (0.7 + rnd() * 0.6);
   const points = [];
   const volumes = [];
 
   for (let i = 0; i < cfg.points; i++) {
     const t = i / (cfg.points - 1);
-    const pulse = Math.sin(t * Math.PI * 2) * cfg.noise * 0.55;
-    const step = (rnd() - 0.48) * cfg.noise + cfg.drift + pulse;
+    trend = trend * 0.94 + (rnd() - 0.5) * cfg.noise * 0.16;
+    const meanRevert = (base - price) * 0.012;
+    const noise = (rnd() - 0.5) * cfg.noise * 1.35;
+    const wave = Math.sin((t + 0.08) * Math.PI * 2) * cfg.noise * 0.24;
+    const spike = rnd() < 0.055 ? (rnd() - 0.5) * cfg.noise * 5.2 : 0;
+    const step = trend + meanRevert + noise + wave + spike;
     price = Math.max(0.00001, price + step);
     points.push(price);
 
@@ -1790,6 +1862,26 @@ function drawChart() {
     return { x, y };
   };
 
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + (h * i) / 4;
+    ctx.beginPath();
+    ctx.moveTo(pad.l, y);
+    ctx.lineTo(pad.l + w, y);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = "rgba(180,92,255,0.06)";
+  for (let i = 0; i <= 6; i++) {
+    const x = pad.l + (w * i) / 6;
+    ctx.beginPath();
+    ctx.moveTo(x, pad.t);
+    ctx.lineTo(x, pad.t + h);
+    ctx.stroke();
+  }
+  ctx.restore();
+
   const vMax = volumes.length ? Math.max(1e-9, Math.max(...volumes)) : 1;
   const barCount = volumes.length;
   const barW = barCount ? w / barCount : 0;
@@ -1799,10 +1891,25 @@ function drawChart() {
     const x = pad.l + i * barW;
     const y = pad.t + h - bh;
     const grad = ctx.createLinearGradient(0, y, 0, pad.t + h);
-    grad.addColorStop(0, "rgba(180,92,255,0.42)");
-    grad.addColorStop(1, "rgba(122,43,255,0.04)");
+    grad.addColorStop(0, "rgba(180,92,255,0.55)");
+    grad.addColorStop(1, "rgba(122,43,255,0.03)");
     ctx.fillStyle = grad;
-    ctx.fillRect(x + barW * 0.22, y, barW * 0.56, bh);
+    const bw = barW * 0.56;
+    const bx = x + barW * 0.22;
+    const r = Math.min(3.5, bw * 0.35, bh * 0.25);
+    ctx.beginPath();
+    ctx.moveTo(bx, y + bh);
+    ctx.lineTo(bx, y + r);
+    ctx.quadraticCurveTo(bx, y, bx + r, y);
+    ctx.lineTo(bx + bw - r, y);
+    ctx.quadraticCurveTo(bx + bw, y, bx + bw, y + r);
+    ctx.lineTo(bx + bw, y + bh);
+    ctx.closePath();
+    ctx.save();
+    ctx.shadowColor = "rgba(180,92,255,0.22)";
+    ctx.shadowBlur = 12;
+    ctx.fill();
+    ctx.restore();
   }
 
   const lineGrad = ctx.createLinearGradient(pad.l, pad.t, pad.l + w, pad.t);
@@ -1811,8 +1918,9 @@ function drawChart() {
 
   ctx.save();
   const areaGrad = ctx.createLinearGradient(0, pad.t, 0, pad.t + h);
-  areaGrad.addColorStop(0, "rgba(180,92,255,0.16)");
-  areaGrad.addColorStop(1, "rgba(122,43,255,0.015)");
+  areaGrad.addColorStop(0, "rgba(180,92,255,0.20)");
+  areaGrad.addColorStop(0.65, "rgba(122,43,255,0.06)");
+  areaGrad.addColorStop(1, "rgba(122,43,255,0.01)");
   ctx.fillStyle = areaGrad;
   ctx.beginPath();
   for (let i = 0; i < points.length; i++) {
@@ -1829,9 +1937,25 @@ function drawChart() {
   ctx.save();
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
+  ctx.shadowColor = "rgba(180,92,255,0.45)";
+  ctx.shadowBlur = 26;
+  ctx.lineWidth = 5.2;
+  ctx.strokeStyle = "rgba(180,92,255,0.18)";
+  ctx.beginPath();
+  for (let i = 0; i < points.length; i++) {
+    const p = toXY(i, points[i]);
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
   ctx.shadowColor = "rgba(180,92,255,0.55)";
-  ctx.shadowBlur = 20;
-  ctx.lineWidth = 2.8;
+  ctx.shadowBlur = 18;
+  ctx.lineWidth = 2.6;
   ctx.strokeStyle = lineGrad;
   ctx.beginPath();
   for (let i = 0; i < points.length; i++) {
@@ -1842,13 +1966,31 @@ function drawChart() {
   ctx.stroke();
   ctx.restore();
 
+  const markerStep = Math.max(6, Math.floor(points.length / 34));
+  ctx.save();
+  ctx.fillStyle = "rgba(180,92,255,0.75)";
+  ctx.shadowColor = "rgba(180,92,255,0.5)";
+  ctx.shadowBlur = 10;
+  for (let i = markerStep; i < points.length - 1; i += markerStep) {
+    const p = toXY(i, points[i]);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 1.7, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
   const lastPt = toXY(points.length - 1, points[points.length - 1]);
   ctx.save();
-  ctx.shadowColor = "rgba(180,92,255,0.65)";
-  ctx.shadowBlur = 18;
-  ctx.fillStyle = "rgba(244,240,255,0.95)";
+  ctx.shadowColor = "rgba(180,92,255,0.8)";
+  ctx.shadowBlur = 22;
+  ctx.strokeStyle = "rgba(180,92,255,0.95)";
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(lastPt.x, lastPt.y, 3.6, 0, Math.PI * 2);
+  ctx.arc(lastPt.x, lastPt.y, 6.2, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(244,240,255,0.96)";
+  ctx.beginPath();
+  ctx.arc(lastPt.x, lastPt.y, 2.7, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
@@ -1939,7 +2081,8 @@ function drawOverview() {
 
   ctx.save();
   const areaGrad = ctx.createLinearGradient(0, pad.t, 0, pad.t + h);
-  areaGrad.addColorStop(0, "rgba(180,92,255,0.12)");
+  areaGrad.addColorStop(0, "rgba(180,92,255,0.16)");
+  areaGrad.addColorStop(0.65, "rgba(122,43,255,0.05)");
   areaGrad.addColorStop(1, "rgba(122,43,255,0.01)");
   ctx.fillStyle = areaGrad;
   ctx.beginPath();
@@ -2223,7 +2366,6 @@ async function syncResultsFromMengyin() {
   }
 
   if (changed) {
-    updatePointsUI();
     renderPredictionMatches();
     renderMyBets();
     renderLeaderboard();
@@ -2433,7 +2575,6 @@ function renderPredictionCard(match) {
   const now = Date.now();
   const disabled = !isBetOpen(match, now);
   const pool = getPool(match.id);
-  const totalPool = pool.totals.HOME + pool.totals.DRAW + pool.totals.AWAY;
   const participantsCount =
     typeof pool.participantsCount === "number" && Number.isFinite(pool.participantsCount)
       ? Math.max(0, Math.floor(pool.participantsCount))
@@ -2453,6 +2594,7 @@ function renderPredictionCard(match) {
           });
           return c;
         })();
+  const totalVotes = counts.HOME + counts.DRAW + counts.AWAY;
   const leader =
     counts.HOME === counts.DRAW && counts.DRAW === counts.AWAY
       ? null
@@ -2495,13 +2637,7 @@ function renderPredictionCard(match) {
         <button class="seg__btn" type="button" data-pick="DRAW" ${disabled ? "disabled" : ""}>${t("prediction.draw")}</button>
         <button class="seg__btn" type="button" data-pick="AWAY" ${disabled ? "disabled" : ""}>${match.away}</button>
       </div>
-      <div class="predBetRow">
-        <div class="predBetRow__label" data-i18n="prediction.betPoints">${t("prediction.betPoints")}</div>
-        <input class="predBetRow__input" type="number" inputmode="numeric" min="${BET_MIN}" max="${BET_MAX}" step="10" value="${BET_MIN}" ${disabled ? "disabled" : ""} />
-      </div>
-      <div class="predBetHint" data-i18n="prediction.rangeHint">${t("prediction.rangeHint")}</div>
       <div class="predPoolRow">
-        <span class="predPoolRow__item"><span class="predPoolRow__k" data-i18n="prediction.pool">${t("prediction.pool")}</span> <span class="predPoolRow__v">${formatPts(totalPool)}</span></span>
         <span class="predPoolRow__item"><span class="predPoolRow__k" data-i18n="prediction.participants">${t("prediction.participants")}</span> <span class="predPoolRow__v">${formatPts(participantsCount)}</span></span>
       </div>
       <div class="predSplit">
@@ -2509,23 +2645,23 @@ function renderPredictionCard(match) {
           <span class="predSplit__title" data-i18n="prediction.splitTitle">${t("prediction.splitTitle")}</span>
           <span class="predSplit__cols">
             <span class="predSplit__col" data-i18n="prediction.bettors">${t("prediction.bettors")}</span>
-            <span class="predSplit__col" data-i18n="prediction.rewardRatio">${t("prediction.rewardRatio")}</span>
+            <span class="predSplit__col" data-i18n="prediction.supportRate">${t("prediction.supportRate")}</span>
           </span>
         </div>
         <div class="predSplitRow ${leader === "HOME" ? "is-lead" : ""}">
           <div class="predSplitRow__name">${match.home}${leader === "HOME" ? ` <span class="predSplitTag">${t("prediction.mostBettors")}</span>` : ""}</div>
-          <div class="predSplitRow__bar"><span class="predSplitRow__fill" style="width:${pct(pool.totals.HOME, totalPool).toFixed(2)}%"></span></div>
-          <div class="predSplitRow__meta"><span class="predSplitRow__num">${formatPts(counts.HOME)}</span><span class="predSplitRow__ratio">${rewardTextForPick(pool.totals.HOME, totalPool)}</span></div>
+          <div class="predSplitRow__bar"><span class="predSplitRow__fill" style="width:${pct(counts.HOME, totalVotes).toFixed(2)}%"></span></div>
+          <div class="predSplitRow__meta"><span class="predSplitRow__num">${formatPts(counts.HOME)}</span><span class="predSplitRow__ratio">${pct(counts.HOME, totalVotes).toFixed(0)}%</span></div>
         </div>
         <div class="predSplitRow ${leader === "DRAW" ? "is-lead" : ""}">
           <div class="predSplitRow__name">${t("prediction.draw")}${leader === "DRAW" ? ` <span class="predSplitTag">${t("prediction.mostBettors")}</span>` : ""}</div>
-          <div class="predSplitRow__bar"><span class="predSplitRow__fill" style="width:${pct(pool.totals.DRAW, totalPool).toFixed(2)}%"></span></div>
-          <div class="predSplitRow__meta"><span class="predSplitRow__num">${formatPts(counts.DRAW)}</span><span class="predSplitRow__ratio">${rewardTextForPick(pool.totals.DRAW, totalPool)}</span></div>
+          <div class="predSplitRow__bar"><span class="predSplitRow__fill" style="width:${pct(counts.DRAW, totalVotes).toFixed(2)}%"></span></div>
+          <div class="predSplitRow__meta"><span class="predSplitRow__num">${formatPts(counts.DRAW)}</span><span class="predSplitRow__ratio">${pct(counts.DRAW, totalVotes).toFixed(0)}%</span></div>
         </div>
         <div class="predSplitRow ${leader === "AWAY" ? "is-lead" : ""}">
           <div class="predSplitRow__name">${match.away}${leader === "AWAY" ? ` <span class="predSplitTag">${t("prediction.mostBettors")}</span>` : ""}</div>
-          <div class="predSplitRow__bar"><span class="predSplitRow__fill" style="width:${pct(pool.totals.AWAY, totalPool).toFixed(2)}%"></span></div>
-          <div class="predSplitRow__meta"><span class="predSplitRow__num">${formatPts(counts.AWAY)}</span><span class="predSplitRow__ratio">${rewardTextForPick(pool.totals.AWAY, totalPool)}</span></div>
+          <div class="predSplitRow__bar"><span class="predSplitRow__fill" style="width:${pct(counts.AWAY, totalVotes).toFixed(2)}%"></span></div>
+          <div class="predSplitRow__meta"><span class="predSplitRow__num">${formatPts(counts.AWAY)}</span><span class="predSplitRow__ratio">${pct(counts.AWAY, totalVotes).toFixed(0)}%</span></div>
         </div>
       </div>
       <button class="btn btn--soft predPick__submit" type="button" data-bet-submit="${match.id}" ${disabled ? "disabled" : ""} data-i18n="prediction.submit">${t("prediction.submit")}</button>
@@ -2566,15 +2702,14 @@ function pickLabelForMatch(match, pick) {
   return String(pick || "");
 }
 
-function resultTag(match, result, pick, payout) {
+function resultTag(match, result, pick) {
   if (!result) {
     const st = match ? matchStatus(match, Date.now()) : "UPCOMING";
     const key = st === "FINISHED" ? "status.finished" : st === "LIVE" ? "status.live" : "status.upcoming";
     return { cls: "myBetTag", text: t(key) };
   }
-  if (result === "DRAW") return { cls: "myBetTag myBetTag--push", text: t("prediction.draw") };
-  if (pick === result && Number(payout || 0) > 0) return { cls: "myBetTag myBetTag--win", text: t("bets.win") };
-  return { cls: "myBetTag myBetTag--lose", text: t("bets.lose") };
+  const ok = pick === result;
+  return ok ? { cls: "myBetTag myBetTag--win", text: t("bets.win") } : { cls: "myBetTag myBetTag--lose", text: t("bets.lose") };
 }
 
 function renderMyBets() {
@@ -2597,13 +2732,8 @@ function renderMyBets() {
       const match = state.schedule.matches.find((m) => m.id === id) || b.match || null;
       if (!match || !match.home || !match.away) return null;
       const pick = b.pick;
-      const amount = Math.max(0, Math.floor(Number(b.amount || 0)));
-      const spentBonus = Math.max(0, Math.floor(Number(b.spentBonus || 0)));
-      const spentBase = Math.max(0, Math.floor(Number(b.spentBase || 0)));
       const result = b.result || null;
-      const payout = b.payout === null || b.payout === undefined ? null : Math.max(0, Math.floor(Number(b.payout || 0)));
-      const tag = resultTag(match, result, pick, payout);
-      const profit = payout === null ? null : payout - amount;
+      const tag = resultTag(match, result, pick);
       const goBtn =
         matchStatus(match, Date.now()) === "UPCOMING"
           ? `<button class="btn btn--ghost btn--xs myBetRow__cta" type="button" data-open="prediction" data-match-id="${match.id}" data-i18n="bets.goMatch">${t("bets.goMatch")}</button>`
@@ -2616,13 +2746,10 @@ function renderMyBets() {
               <span class="${tag.cls}">${tag.text}</span>
               <span class="myBetTag">${formatWhen(match)}</span>
               <span class="myBetTag">${stageLabel(match.stage)}</span>
-              <span class="myBetTag">${pickLabelForMatch(match, pick)} · ${formatPts(amount)} PTS</span>
-              <span class="myBetTag">${t("bets.used")}: ${t("bets.bonus")} ${formatPts(spentBonus)} · ${t("bets.base")} ${formatPts(spentBase)}</span>
+              <span class="myBetTag">${pickLabelForMatch(match, pick)}</span>
             </div>
           </div>
           <div class="myBetRow__right">
-            <div class="myBetRow__num">${payout === null ? "--" : `${formatPts(payout)} PTS`}</div>
-            <div class="myBetRow__hint">${profit === null ? "" : (profit >= 0 ? `+${formatPts(profit)}` : `-${formatPts(Math.abs(profit))}`)}</div>
             ${goBtn}
           </div>
         </div>
@@ -3090,7 +3217,6 @@ function settleMatchIfPossible(matchId) {
   const entries = Object.entries(parts).map(([addr, v]) => ({
     addr: normAddress(addr),
     pick: v?.pick,
-    amount: Math.max(0, Math.floor(Number(v?.amount || 0))),
   }));
   if (!entries.length) {
     pool.settled = true;
@@ -3099,80 +3225,19 @@ function settleMatchIfPossible(matchId) {
     return;
   }
 
-  if (result === "DRAW") {
-    entries.forEach((e) => {
-      setPoints(e.addr, getPoints(e.addr) + e.amount);
-      setUserBet(e.addr, matchId, { result, payout: e.amount, settledAt: Date.now() });
-    });
-    pool.settled = true;
-    pool.result = result;
-    setPool(matchId, pool);
-    updatePointsUI();
-    renderMyBets();
-    renderLeaderboard();
-    return;
-  }
-
-  const winners = entries.filter((e) => e.pick === result);
-  const losers = entries.filter((e) => e.pick !== result);
-  const totalWin = winners.reduce((a, e) => a + e.amount, 0);
-  const totalLose = losers.reduce((a, e) => a + e.amount, 0);
-
-  if (totalWin <= 0) {
-    entries.forEach((e) => {
-      setPoints(e.addr, getPoints(e.addr) + e.amount);
-      setUserBet(e.addr, matchId, { result, payout: e.amount, settledAt: Date.now() });
-    });
-    pool.settled = true;
-    pool.result = result;
-    setPool(matchId, pool);
-    updatePointsUI();
-    renderMyBets();
-    renderLeaderboard();
-    return;
-  }
-
-  const win = BigInt(totalWin);
-  const lose = BigInt(totalLose);
-  const bonuses = winners.map((e) => {
-    const amt = BigInt(e.amount);
-    const prod = amt * lose;
-    const bonus = prod / win;
-    const rem = prod % win;
-    return { ...e, bonus: Number(bonus), rem };
+  entries.forEach((e) => {
+    if (!e.addr) return;
+    trackLeaderboardAddress(e.addr);
+    setUserBet(e.addr, matchId, { result, correct: e.pick === result, settledAt: Date.now() });
   });
-  let bonusSum = bonuses.reduce((a, b) => a + b.bonus, 0);
-  let remainder = totalLose - bonusSum;
-  if (remainder > 0) {
-    bonuses
-      .sort((a, b) => (a.rem === b.rem ? 0 : a.rem > b.rem ? -1 : 1))
-      .slice(0, remainder)
-      .forEach((b) => {
-        b.bonus += 1;
-      });
-  }
-
-  bonuses.forEach((b) => {
-    const payout = b.amount + b.bonus;
-    setPoints(b.addr, getPoints(b.addr) + payout);
-    addRankPoints(b.addr, b.bonus);
-    trackLeaderboardAddress(b.addr);
-    setUserBet(b.addr, matchId, { result, payout, settledAt: Date.now() });
-  });
-  losers.forEach((l) => {
-    trackLeaderboardAddress(l.addr);
-    setUserBet(l.addr, matchId, { result, payout: 0, settledAt: Date.now() });
-  });
-
   pool.settled = true;
   pool.result = result;
   setPool(matchId, pool);
-  updatePointsUI();
   renderMyBets();
   renderLeaderboard();
 }
 
-async function placeBet(matchId, pick, amount) {
+async function placePrediction(matchId, pick) {
   if (!state.wallet.address) {
     toast(t("toast.connectToSubmit"));
     return;
@@ -3184,113 +3249,37 @@ async function placeBet(matchId, pick, amount) {
     toast(t("toast.betClosed"));
     return;
   }
-
-  const bet = Math.floor(Number(amount || 0));
-  if (!Number.isFinite(bet) || bet < BET_MIN || bet > BET_MAX) {
-    toast(t("toast.betRange", { min: BET_MIN, max: BET_MAX }));
-    return;
-  }
-
-  if (state.backend.enabled) {
-    const ok = await backendEnsureLogin({ interactive: true });
-    if (ok && state.backend.authed) {
-      try {
-        const r = await backendFetch("/v1/bets", { method: "POST", body: { matchId, pick, amount: bet } });
-        const me = r?.me || null;
-        const poolDto = r?.pool || null;
-        const betDto = r?.bet || null;
-        const addr = normAddress(state.wallet.address);
-        if (me) {
-          if (typeof me.basePoints === "number") setPoints(addr, me.basePoints);
-          if (typeof me.rankPoints === "number") setRankPoints(addr, me.rankPoints);
-          if (typeof me.bonusSpent === "number") setBonusSpent(addr, me.bonusSpent);
-          if (typeof me.bonusComputed === "number") setBonusComputed(addr, me.bonusComputed);
-          trackLeaderboardAddress(addr);
-        }
-        if (poolDto) {
-          setPool(matchId, {
-            totals: poolDto.totals || { HOME: 0, DRAW: 0, AWAY: 0 },
-            counts: poolDto.counts || { HOME: 0, DRAW: 0, AWAY: 0 },
-            participantsCount: poolDto.participantsCount || 0,
-            participants: {},
-            settled: Boolean(poolDto.settled),
-            result: poolDto.result || null,
-          });
-        }
-        if (betDto) {
-          setUserBet(addr, matchId, {
-            matchId,
-            pick: betDto.pick || pick,
-            amount: betDto.amount || bet,
-            spentBonus: betDto.spentBonus || 0,
-            spentBase: betDto.spentBase || 0,
-            ts: Date.now(),
-            result: null,
-            payout: null,
-            match: {
-              id: match.id,
-              date: match.date,
-              time: match.time,
-              stage: match.stage,
-              home: match.home,
-              away: match.away,
-              kickoffIso: match.kickoffIso,
-              kickoffMs: match.kickoffMs,
-            },
-          });
-        } else {
-          backendSyncBets();
-        }
-        updatePointsUI();
-        renderMyBets();
-        renderLeaderboard();
-        toast(t("toast.betPlaced"));
-        return;
-      } catch (e) {
-        const msg = String(e?.message || "");
-        if (msg === "bet_closed") toast(t("toast.betClosed"));
-        else if (msg === "already_bet") toast(t("toast.alreadyBet"));
-        else if (msg === "insufficient_points") toast(t("toast.insufficientPoints"));
-        else toast(t("toast.backendBetFailed"));
-        return;
-      }
-    }
-  }
-
-  initPointsIfNeeded(state.wallet.address);
   const addr = normAddress(state.wallet.address);
-  const base = getPoints(addr);
-  const bonusAvail = getBonusAvailable(addr);
-  const total = base + bonusAvail;
-  if (total < bet) {
-    toast(t("toast.insufficientPoints"));
-    return;
-  }
-
   const pool = getPool(matchId);
   if (pool.participants && pool.participants[addr]) {
     toast(t("toast.alreadyBet"));
     return;
   }
 
-  pool.participants[addr] = { pick, amount: bet, ts: Date.now() };
-  pool.totals[pick] = Math.max(0, Math.floor(Number(pool.totals[pick] || 0))) + bet;
+  const wholeWct = getWctWholeBalance();
+  const limit = getDailyPredictionLimit(wholeWct);
+  const used = getTodayPredictionCount(addr);
+  if (used >= limit) {
+    toast(t("toast.dailyLimit", { limit, holdLimit: DAILY_PRED_LIMIT_HOLD }));
+    return;
+  }
+
+  const ts = Date.now();
+  pool.participants[addr] = { pick, ts };
+  const c = pool.counts && typeof pool.counts === "object" ? pool.counts : { HOME: 0, DRAW: 0, AWAY: 0 };
+  if (pick === "HOME" || pick === "DRAW" || pick === "AWAY") c[pick] = Math.max(0, Math.floor(Number(c[pick] || 0))) + 1;
+  pool.counts = c;
+  pool.participantsCount = Object.keys(pool.participants || {}).length;
   setPool(matchId, pool);
 
-  const useBonus = Math.min(bet, bonusAvail);
-  const remain = bet - useBonus;
-  if (useBonus > 0) setBonusSpent(addr, getBonusSpent(addr) + useBonus);
-  if (remain > 0) setPoints(addr, base - remain);
   trackLeaderboardAddress(addr);
+  bumpTodayPredictionCount(addr);
   setUserBet(addr, matchId, {
     matchId,
     pick,
-    amount: bet,
-    spentBonus: useBonus,
-    spentBase: remain,
-    ts: Date.now(),
+    ts,
     result: null,
-    payout: null,
+    correct: null,
     match: {
       id: match.id,
       date: match.date,
@@ -3302,10 +3291,10 @@ async function placeBet(matchId, pick, amount) {
       kickoffMs: match.kickoffMs,
     },
   });
-  updatePointsUI();
   renderMyBets();
   renderLeaderboard();
-  toast(t("toast.betPlaced"));
+  updateWalletUI();
+  toast(t("toast.predSubmitted", { pick: pickLabelForMatch(match, pick) }));
 }
 
 function setupPredictionBetsForHost(host) {
@@ -3327,9 +3316,7 @@ function setupPredictionBetsForHost(host) {
     const matchId = submit.getAttribute("data-bet-submit");
     const seg = card ? $(".seg", card) : null;
     const pick = seg?.querySelector(".seg__btn.is-active")?.getAttribute("data-pick") || "DRAW";
-    const input = card ? $(".predBetRow__input", card) : null;
-    const amount = input ? input.value : BET_MIN;
-    placeBet(matchId, pick, amount);
+    placePrediction(matchId, pick);
 
     if (host.id === "predictionList") {
       renderPredictionMatches();
@@ -3487,12 +3474,8 @@ function boot() {
     setMatchResult(matchId, pick) {
       setMatchResultPick(matchId, pick);
       settleMatchIfPossible(matchId);
-      updatePointsUI();
       renderPredictionMatches();
       renderLeaderboard();
-    },
-    getPoints(addr) {
-      return getTotalPoints(addr || state.wallet.address);
     },
   };
 
@@ -3501,9 +3484,39 @@ function boot() {
   setupWalletListeners();
 
   const connectBtn = $("#connectWalletBtn");
-  if (connectBtn) connectBtn.addEventListener("click", connectWallet);
+  if (connectBtn) {
+    connectBtn.addEventListener("click", () => {
+      const isConnected = !!(state.wallet.address && state.wallet.connected && state.wallet.manualConnected);
+      if (!isConnected) {
+        connectWallet();
+        return;
+      }
+      state.wallet.walletMenuOpen = !state.wallet.walletMenuOpen;
+      updateWalletUI();
+    });
+  }
   const disconnectBtn = $("#disconnectWalletBtn");
   if (disconnectBtn) disconnectBtn.addEventListener("click", disconnectWallet);
+  const myPredBtn = $("#myPredictionsBtn");
+  if (myPredBtn) {
+    myPredBtn.addEventListener("click", () => {
+      state.wallet.walletMenuOpen = false;
+      updateWalletUI();
+      const el = $("#myPredictions");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      else window.location.hash = "#myPredictions";
+    });
+  }
+
+  document.addEventListener("pointerdown", (e) => {
+    const isConnected = !!(state.wallet.address && state.wallet.connected && state.wallet.manualConnected);
+    if (!isConnected || !state.wallet.walletMenuOpen) return;
+    const tEl = e.target instanceof Element ? e.target : null;
+    if (!tEl) return;
+    if (tEl.closest("#connectWalletBtn") || tEl.closest("#walletMenu")) return;
+    state.wallet.walletMenuOpen = false;
+    updateWalletUI();
+  });
 
   const langBtn = $("#langToggleBtn");
   if (langBtn) {
