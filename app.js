@@ -1216,45 +1216,38 @@ async function backendEnsureLogin({ interactive } = {}) {
     }
 
     const msgHex = utf8ToHex(message);
-    const signPayloads = [
-      [message, addr],
-      [addr, message],
-      msgHex ? [msgHex, addr] : null,
-      msgHex ? [addr, msgHex] : null,
-    ].filter(Boolean);
-
-    for (let i = 0; i < signPayloads.length; i++) {
-      const params = signPayloads[i];
-      let signature = "";
-      try {
-        signature = await provider.request({ method: "personal_sign", params });
-      } catch {
-        signature = "";
-      }
-      if (!signature) continue;
-      try {
-        const r2 = await backendFetch("/v1/login", { method: "POST", body: { address: addr, signature } });
-        const tok = r2 && r2.token ? String(r2.token) : "";
-        if (!tok) throw new Error("no_token");
-        state.backend.token = tok;
-        setBackendToken(addr, tok);
-        state.backend.authed = true;
-        return true;
-      } catch (e) {
-        const msg = String(e?.message || "");
-        const status = Number(e?.status || 0);
-        if (msg === "db_unavailable" || status === 503) {
-          toast(t("toast.backendUnavailable"));
-          state.backend.authed = false;
-          return false;
-        }
-        if (msg === "bad_signature" || msg === "signature_mismatch") continue;
-      }
+    let signature = "";
+    try {
+      if (msgHex) signature = await provider.request({ method: "personal_sign", params: [msgHex, addr] });
+      else signature = await provider.request({ method: "personal_sign", params: [message, addr] });
+    } catch {
+      signature = "";
     }
-
-    toast(t("toast.backendLoginFailed"));
-    state.backend.authed = false;
-    return false;
+    if (!signature) {
+      toast(t("toast.backendLoginFailed"));
+      state.backend.authed = false;
+      return false;
+    }
+    try {
+      const r2 = await backendFetch("/v1/login", { method: "POST", body: { address: addr, signature } });
+      const tok = r2 && r2.token ? String(r2.token) : "";
+      if (!tok) throw new Error("no_token");
+      state.backend.token = tok;
+      setBackendToken(addr, tok);
+      state.backend.authed = true;
+      return true;
+    } catch (e) {
+      const msg = String(e?.message || "");
+      const status = Number(e?.status || 0);
+      if (msg === "db_unavailable" || status === 503) {
+        toast(t("toast.backendUnavailable"));
+        state.backend.authed = false;
+        return false;
+      }
+      toast(t("toast.backendLoginFailed"));
+      state.backend.authed = false;
+      return false;
+    }
   })();
 
   try {

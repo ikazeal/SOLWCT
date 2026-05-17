@@ -70,6 +70,31 @@ function buildLoginMessage({ address, nonce, issuedAt, origin }) {
   return `WCT Login\nOrigin: ${o}\nAddress: ${address}\nNonce: ${nonce}\nIssued At: ${new Date(issuedAt).toISOString()}`;
 }
 
+function verifyLoginMessage({ address, signature, message }) {
+  const target = normAddress(address);
+  const sig = String(signature || "");
+  const msg = String(message || "");
+  const variants = Array.from(
+    new Set([
+      msg,
+      msg.replace(/\r\n/g, "\n"),
+      msg.replace(/\n/g, "\r\n"),
+    ]),
+  ).filter(Boolean);
+
+  let badSig = true;
+  for (const m of variants) {
+    try {
+      const recovered = normAddress(ethers.verifyMessage(m, sig));
+      badSig = false;
+      if (recovered === target) return { ok: true };
+    } catch {
+      continue;
+    }
+  }
+  return { ok: false, reason: badSig ? "bad_signature" : "signature_mismatch" };
+}
+
 function pow10BigInt(d) {
   const n = Math.max(0, Math.floor(Number(d || 0)));
   let r = 1n;
@@ -325,13 +350,8 @@ app.post("/v1/login", wrap(async (req, res) => {
   if (clampInt(nonceRow.expires_at_ms, 0) <= nowMs()) return jsonErr(res, 400, "expired_nonce");
   const origin = nonceRow.origin ? String(nonceRow.origin) : String((req.headers.origin ?? req.headers.host ?? "WCT") || "WCT");
   const message = buildLoginMessage({ address, nonce: String(nonceRow.nonce), issuedAt: clampInt(nonceRow.issued_at_ms, nowMs()), origin });
-  let recovered = "";
-  try {
-    recovered = normAddress(ethers.verifyMessage(message, signature));
-  } catch {
-    return jsonErr(res, 400, "bad_signature");
-  }
-  if (recovered !== address) return jsonErr(res, 401, "signature_mismatch");
+  const v = verifyLoginMessage({ address, signature, message });
+  if (!v.ok) return jsonErr(res, v.reason === "bad_signature" ? 400 : 401, v.reason);
 
   await dbQuery("delete from public.nonces where address = $1", [address]);
 
