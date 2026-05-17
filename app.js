@@ -50,6 +50,7 @@ const state = {
     authed: false,
     lastSyncMs: 0,
     syncing: false,
+    leaderboardRows: [],
   },
 };
 
@@ -471,6 +472,10 @@ function makeRng(seed) {
 
 function toast(message, { timeout = 2600 } = {}) {
   const host = $("#toastHost");
+  if (!host) {
+    window.alert(String(message || ""));
+    return;
+  }
   const el = document.createElement("div");
   el.className = "toast";
   const msg = document.createElement("div");
@@ -1101,6 +1106,7 @@ function initBackendState() {
   state.backend.authed = false;
   state.backend.lastSyncMs = 0;
   state.backend.syncing = false;
+  state.backend.leaderboardRows = [];
 
   state.rewards.treasuryAddress = getTreasuryAddress();
   state.rewards.lastTreasurySyncMs = 0;
@@ -1204,6 +1210,7 @@ async function backendSyncLeaderboard() {
   if (!state.backend.enabled) return;
   const r = await backendFetch("/v1/leaderboard?limit=10");
   const rows = Array.isArray(r?.rows) ? r.rows : [];
+  state.backend.leaderboardRows = rows;
   const addrs = rows.map((x) => normAddress(x.address)).filter(Boolean);
   localStorage.setItem(leaderboardIndexKey(), JSON.stringify(addrs));
 }
@@ -1233,7 +1240,12 @@ async function backendSyncPools() {
 async function backendSyncBets() {
   if (!state.backend.enabled || !state.backend.authed || !state.wallet.address) return;
   const addr = state.wallet.address;
-  const r = await backendFetch("/v1/bets?limit=120");
+  let r = null;
+  try {
+    r = await backendFetch("/v1/predictions?limit=120");
+  } catch {
+    r = await backendFetch("/v1/bets?limit=120");
+  }
   const rows = Array.isArray(r?.rows) ? r.rows : [];
   const obj = {};
   rows.forEach((b) => {
@@ -1359,6 +1371,36 @@ function trackLeaderboardAddress(addr) {
 function renderLeaderboard() {
   const host = $("#leaderList");
   if (!host) return;
+  if (state.backend.enabled && Array.isArray(state.backend.leaderboardRows) && state.backend.leaderboardRows.length) {
+    const rows = state.backend.leaderboardRows
+      .map((r) => ({
+        addr: normAddress(r.address),
+        rate: Math.max(0, Math.min(1, Number(r.winRate || 0))),
+        total: Math.max(0, Math.floor(Number(r.matches || 0))),
+      }))
+      .filter((r) => r.addr && r.total >= MIN_LEADERBOARD_MATCHES)
+      .slice(0, 10);
+    if (!rows.length) {
+      host.innerHTML = "";
+      return;
+    }
+    host.innerHTML = rows
+      .map((r, i) => {
+        const cls = i === 0 ? "leaderRow is-1" : i === 1 ? "leaderRow is-2" : i === 2 ? "leaderRow is-3" : "leaderRow";
+        const pctText = `${(r.rate * 100).toFixed(1)}%`;
+        const detail = `${r.total}场`;
+        return `
+          <li class="${cls}">
+            <div class="leaderRow__rank">${i + 1}</div>
+            <div class="leaderRow__addr mono">${truncateAddress(r.addr)}</div>
+            <div class="leaderRow__pts">${pctText} ${detail}</div>
+            <div class="leaderRow__badge" aria-hidden="true">${i < 3 ? "👑" : " "}</div>
+          </li>
+        `;
+      })
+      .join("");
+    return;
+  }
   const list = getLeaderboardIndex();
   if (state.wallet.address) trackLeaderboardAddress(state.wallet.address);
   const addrs = getLeaderboardIndex();
@@ -1679,8 +1721,13 @@ async function ensureBscNetwork() {
 }
 
 async function connectWallet() {
-  if (!window.ethereum) {
-    toast(t("toast.noWallet"));
+  if (!window.ethereum || typeof window.ethereum.request !== "function") {
+    const msg = t("toast.noWallet");
+    toast(msg);
+    try {
+      window.alert(msg);
+    } catch {
+    }
     return;
   }
 
@@ -3263,6 +3310,39 @@ async function placePrediction(matchId, pick) {
     return;
   }
   const addr = normAddress(state.wallet.address);
+  if (state.backend.enabled) {
+    const ok = await backendEnsureLogin({ interactive: true });
+    if (ok) {
+      try {
+        await backendFetch("/v1/predictions", { method: "POST", body: { matchId, pick } });
+        bumpTodayPredictionCount(addr);
+        await backendSyncAll({ force: true });
+        toast(t("toast.predSubmitted", { pick: pickLabelForMatch(match, pick) }));
+        return;
+      } catch (e) {
+        const msg = String(e?.message || "");
+        const status = Number(e?.status || 0);
+        if (msg === "already_bet") {
+          toast(t("toast.alreadyBet"));
+          return;
+        }
+        if (msg === "bet_closed") {
+          toast(t("toast.betClosed"));
+          return;
+        }
+        if (msg === "daily_limit" || status === 429) {
+          const wholeWct = getWctWholeBalance();
+          const limit = getDailyPredictionLimit(wholeWct);
+          toast(t("toast.dailyLimit", { limit, holdLimit: DAILY_PRED_LIMIT_HOLD }));
+          return;
+        }
+        if (status >= 400 && status < 500) {
+          toast(t("toast.backendBetFailed"));
+          return;
+        }
+      }
+    }
+  }
   const pool = getPool(matchId);
   if (pool.participants && pool.participants[addr]) {
     toast(t("toast.alreadyBet"));
@@ -3469,125 +3549,134 @@ function setupCoin3d() {
 }
 
 function boot() {
-  state.lang = getInitialLang();
-  initBackendState();
-  applyTranslations();
-  setupFxReveal();
-  setupCoin3d();
-  updateContractUI();
-  setupCopyContract();
-  setupRangeTabs();
-  const overview = generateSeries("24H");
-  state.overview.points = overview.points;
-  state.overview.volumes = overview.volumes;
-  drawOverview();
-  setRange("24H");
-  setupResizeRedraw();
-  setupSmoothScroll();
-  setupNavActive();
-  setupRewardsModal();
-  setupPredictionBets();
-  window.WCT = {
-    setMatchResult(matchId, pick) {
-      setMatchResultPick(matchId, pick);
-      settleMatchIfPossible(matchId);
-      renderPredictionMatches();
-      renderLeaderboard();
-    },
-  };
+  try {
+    state.lang = getInitialLang();
+    initBackendState();
+    applyTranslations();
+    setupFxReveal();
+    setupCoin3d();
+    updateContractUI();
+    setupCopyContract();
+    setupRangeTabs();
+    const overview = generateSeries("24H");
+    state.overview.points = overview.points;
+    state.overview.volumes = overview.volumes;
+    drawOverview();
+    setRange("24H");
+    setupResizeRedraw();
+    setupSmoothScroll();
+    setupNavActive();
+    setupRewardsModal();
+    setupPredictionBets();
+    window.WCT = {
+      setMatchResult(matchId, pick) {
+        setMatchResultPick(matchId, pick);
+        settleMatchIfPossible(matchId);
+        renderPredictionMatches();
+        renderLeaderboard();
+      },
+    };
 
-  updateWalletUI();
-  hydrateRewardsFromAddress();
-  setupWalletListeners();
+    updateWalletUI();
+    hydrateRewardsFromAddress();
+    setupWalletListeners();
 
-  const connectBtn = $("#connectWalletBtn");
-  if (connectBtn) {
-    connectBtn.addEventListener("click", () => {
+    const connectBtn = $("#connectWalletBtn");
+    if (connectBtn) {
+      connectBtn.addEventListener("click", () => {
+        const isConnected = !!(state.wallet.address && state.wallet.connected && state.wallet.manualConnected);
+        if (!isConnected) {
+          connectWallet();
+          return;
+        }
+        state.wallet.walletMenuOpen = !state.wallet.walletMenuOpen;
+        updateWalletUI();
+      });
+    }
+    const disconnectBtn = $("#disconnectWalletBtn");
+    if (disconnectBtn) disconnectBtn.addEventListener("click", disconnectWallet);
+    const myPredBtn = $("#myPredictionsBtn");
+    if (myPredBtn) {
+      myPredBtn.addEventListener("click", () => {
+        state.wallet.walletMenuOpen = false;
+        updateWalletUI();
+        const el = $("#myPredictions");
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        else window.location.hash = "#myPredictions";
+      });
+    }
+
+    document.addEventListener("pointerdown", (e) => {
       const isConnected = !!(state.wallet.address && state.wallet.connected && state.wallet.manualConnected);
-      if (!isConnected) {
-        connectWallet();
-        return;
-      }
-      state.wallet.walletMenuOpen = !state.wallet.walletMenuOpen;
-      updateWalletUI();
-    });
-  }
-  const disconnectBtn = $("#disconnectWalletBtn");
-  if (disconnectBtn) disconnectBtn.addEventListener("click", disconnectWallet);
-  const myPredBtn = $("#myPredictionsBtn");
-  if (myPredBtn) {
-    myPredBtn.addEventListener("click", () => {
+      if (!isConnected || !state.wallet.walletMenuOpen) return;
+      const tEl = e.target instanceof Element ? e.target : null;
+      if (!tEl) return;
+      if (tEl.closest("#connectWalletBtn") || tEl.closest("#walletMenu")) return;
       state.wallet.walletMenuOpen = false;
       updateWalletUI();
-      const el = $("#myPredictions");
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-      else window.location.hash = "#myPredictions";
     });
-  }
 
-  document.addEventListener("pointerdown", (e) => {
-    const isConnected = !!(state.wallet.address && state.wallet.connected && state.wallet.manualConnected);
-    if (!isConnected || !state.wallet.walletMenuOpen) return;
-    const tEl = e.target instanceof Element ? e.target : null;
-    if (!tEl) return;
-    if (tEl.closest("#connectWalletBtn") || tEl.closest("#walletMenu")) return;
-    state.wallet.walletMenuOpen = false;
-    updateWalletUI();
-  });
-
-  const langBtn = $("#langToggleBtn");
-  if (langBtn) {
-    langBtn.addEventListener("click", () => {
-      setLang(state.lang === "en" ? "zh" : "en");
-      setupStageTabs();
-      renderUpcomingMatches();
-      renderPredictionMatches();
-      renderAllMatches();
-    });
-  }
-
-  const page = document.body ? document.body.getAttribute("data-page") : null;
-  const isMatchesPage = page === "matches";
-  const isWhitepaperPage = page === "whitepaper";
-  const initialMatchId = new URLSearchParams(window.location.search).get("match");
-
-  if (!isWhitepaperPage && !isMatchesPage) {
-    refreshTokenSnapshot();
-    window.setInterval(() => refreshTokenSnapshot(), 15000);
-    window.setInterval(() => fetchWalletBalances(), 15000);
-  }
-
-  if (!isWhitepaperPage) {
-    loadSchedule()
-      .then(() => {
-        if (isMatchesPage) {
-          setupStageTabs();
-          renderAllMatches();
-          setupMatchesPredictModal();
-        } else {
-          renderUpcomingMatches();
-          renderPredictionMatches();
-          renderMyBets();
-          if (initialMatchId) scrollToPredictionMatch(initialMatchId);
-        }
-      })
-      .catch(() => {
-        toast(t("matches.loadFailed"));
-        const host = isMatchesPage ? $("#allMatches") : $("#upcomingMatches");
-        if (host) host.innerHTML = `<div class="matchEmpty">${t("matches.loadFailed")}</div>`;
-      })
-      .finally(() => {
-        startScheduleTicker();
+    const langBtn = $("#langToggleBtn");
+    if (langBtn) {
+      langBtn.addEventListener("click", () => {
+        setLang(state.lang === "en" ? "zh" : "en");
+        setupStageTabs();
+        renderUpcomingMatches();
+        renderPredictionMatches();
+        renderAllMatches();
       });
-  }
+    }
 
-  if (window.ethereum) {
-    window.ethereum
-      .request({ method: "eth_chainId" })
-      .then((chainId) => {
-        state.wallet.chainId = chainId;
-      })
-      .catch(() => {});
+    const page = document.body ? document.body.getAttribute("data-page") : null;
+    const isMatchesPage = page === "matches";
+    const isWhitepaperPage = page === "whitepaper";
+    const initialMatchId = new URLSearchParams(window.location.search).get("match");
+
+    if (!isWhitepaperPage && !isMatchesPage) {
+      refreshTokenSnapshot();
+      window.setInterval(() => refreshTokenSnapshot(), 15000);
+      window.setInterval(() => fetchWalletBalances(), 15000);
+    }
+
+    if (!isWhitepaperPage) {
+      loadSchedule()
+        .then(() => {
+          if (isMatchesPage) {
+            setupStageTabs();
+            renderAllMatches();
+            setupMatchesPredictModal();
+          } else {
+            renderUpcomingMatches();
+            renderPredictionMatches();
+            renderMyBets();
+            if (initialMatchId) scrollToPredictionMatch(initialMatchId);
+          }
+        })
+        .catch(() => {
+          toast(t("matches.loadFailed"));
+          const host = isMatchesPage ? $("#allMatches") : $("#upcomingMatches");
+          if (host) host.innerHTML = `<div class="matchEmpty">${t("matches.loadFailed")}</div>`;
+        })
+        .finally(() => {
+          startScheduleTicker();
+        });
+    }
+
+    if (window.ethereum) {
+      window.ethereum
+        .request({ method: "eth_chainId" })
+        .then((chainId) => {
+          state.wallet.chainId = chainId;
+        })
+        .catch(() => {});
+    }
+  } catch {
+    const connectBtn = $("#connectWalletBtn");
+    if (connectBtn) connectBtn.addEventListener("click", connectWallet);
+    try {
+      window.alert("页面初始化失败，请刷新后重试");
+    } catch {
+    }
   }
 }
 
