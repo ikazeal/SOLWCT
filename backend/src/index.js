@@ -84,12 +84,15 @@ function verifyLoginMessage({ address, signature, message }) {
 
   let badSig = true;
   for (const m of variants) {
-    try {
-      const recovered = normAddress(ethers.verifyMessage(m, sig));
-      badSig = false;
-      if (recovered === target) return { ok: true };
-    } catch {
-      continue;
+    const payloads = [m, ethers.toUtf8Bytes(m)];
+    for (const p of payloads) {
+      try {
+        const recovered = normAddress(ethers.verifyMessage(p, sig));
+        badSig = false;
+        if (recovered === target) return { ok: true };
+      } catch {
+        continue;
+      }
     }
   }
   return { ok: false, reason: badSig ? "bad_signature" : "signature_mismatch" };
@@ -140,6 +143,7 @@ async function dbQuery(text, params) {
 
 async function ensureDbSchema() {
   await dbQuery("alter table if exists public.nonces add column if not exists origin text", []);
+  await dbQuery("alter table if exists public.nonces add column if not exists message text", []);
 }
 
 const provider = new ethers.JsonRpcProvider(BSC_RPC_URL);
@@ -328,11 +332,11 @@ app.get("/v1/nonce", wrap(async (req, res) => {
   const nonce = randHex(16);
   const issuedAt = nowMs();
   const expiresAt = issuedAt + NONCE_TTL_MS;
-  await dbQuery(
-    "insert into public.nonces(address, nonce, origin, issued_at, expires_at) values ($1, $2, $3, to_timestamp($4/1000.0), to_timestamp($5/1000.0)) on conflict (address) do update set nonce = excluded.nonce, origin = excluded.origin, issued_at = excluded.issued_at, expires_at = excluded.expires_at",
-    [address, nonce, origin, issuedAt, expiresAt],
-  );
   const message = buildLoginMessage({ address, nonce, issuedAt, origin });
+  await dbQuery(
+    "insert into public.nonces(address, nonce, origin, message, issued_at, expires_at) values ($1, $2, $3, $4, to_timestamp($5/1000.0), to_timestamp($6/1000.0)) on conflict (address) do update set nonce = excluded.nonce, origin = excluded.origin, message = excluded.message, issued_at = excluded.issued_at, expires_at = excluded.expires_at",
+    [address, nonce, origin, message, issuedAt, expiresAt],
+  );
   jsonOk(res, { address, nonce, issuedAt, expiresAt, message });
 }));
 
@@ -342,14 +346,18 @@ app.post("/v1/login", wrap(async (req, res) => {
   if (!isAddress(address)) return jsonErr(res, 400, "invalid_address");
   if (!signature) return jsonErr(res, 400, "missing_signature");
   const nonceRes = await dbQuery(
-    "select address, nonce, origin, extract(epoch from issued_at)*1000 as issued_at_ms, extract(epoch from expires_at)*1000 as expires_at_ms from public.nonces where address = $1 limit 1",
+    "select address, nonce, origin, message, extract(epoch from issued_at)*1000 as issued_at_ms, extract(epoch from expires_at)*1000 as expires_at_ms from public.nonces where address = $1 limit 1",
     [address],
   );
   const nonceRow = nonceRes.rows && nonceRes.rows[0] ? nonceRes.rows[0] : null;
   if (!nonceRow) return jsonErr(res, 400, "missing_nonce");
   if (clampInt(nonceRow.expires_at_ms, 0) <= nowMs()) return jsonErr(res, 400, "expired_nonce");
-  const origin = nonceRow.origin ? String(nonceRow.origin) : String((req.headers.origin ?? req.headers.host ?? "WCT") || "WCT");
-  const message = buildLoginMessage({ address, nonce: String(nonceRow.nonce), issuedAt: clampInt(nonceRow.issued_at_ms, nowMs()), origin });
+  const message = String(nonceRow.message || "") || buildLoginMessage({
+    address,
+    nonce: String(nonceRow.nonce),
+    issuedAt: clampInt(nonceRow.issued_at_ms, nowMs()),
+    origin: nonceRow.origin ? String(nonceRow.origin) : String((req.headers.origin ?? req.headers.host ?? "WCT") || "WCT"),
+  });
   const v = verifyLoginMessage({ address, signature, message });
   if (!v.ok) return jsonErr(res, v.reason === "bad_signature" ? 400 : 401, v.reason);
 

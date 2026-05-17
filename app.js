@@ -225,8 +225,8 @@ const I18N = {
     "toast.walletDisconnected": "Wallet disconnected.",
     "toast.walletFailed": "Wallet connection failed.",
     "toast.walletRejected": "Wallet connection rejected.",
-    "toast.backendUnavailable": "Backend unavailable. Using local demo storage.",
-    "toast.backendLoginFailed": "Backend login failed. Using local demo storage.",
+    "toast.backendUnavailable": "Backend unavailable. Please try again later.",
+    "toast.backendLoginFailed": "Backend login failed. Please retry.",
     "toast.backendBetFailed": "Submit failed. Please try again.",
     "toast.networkAddRejected": "Network add rejected.",
     "toast.networkSwitchRejected": "Network switch rejected.",
@@ -359,8 +359,8 @@ const I18N = {
     "toast.walletDisconnected": "钱包已断开。",
     "toast.walletFailed": "连接失败。",
     "toast.walletRejected": "用户取消连接。",
-    "toast.backendUnavailable": "后端不可用，已使用本地演示存储。",
-    "toast.backendLoginFailed": "后端登录失败，已使用本地演示存储。",
+    "toast.backendUnavailable": "后端不可用，请稍后重试。",
+    "toast.backendLoginFailed": "后端登录失败，请重试。",
     "toast.backendBetFailed": "提交失败，请重试。",
     "toast.networkAddRejected": "已取消添加网络。",
     "toast.networkSwitchRejected": "已取消切换网络。",
@@ -1215,13 +1215,29 @@ async function backendEnsureLogin({ interactive } = {}) {
       return false;
     }
 
-    const msgHex = utf8ToHex(message);
+    const signOnce = async (params) => {
+      try {
+        const sig = await provider.request({ method: "personal_sign", params });
+        return { sig: sig ? String(sig) : "", rejected: false };
+      } catch (e) {
+        const code = Number(e?.code || 0);
+        const msg = String(e?.message || "").toLowerCase();
+        if (code === 4001 || msg.includes("rejected")) return { sig: "", rejected: true };
+        return { sig: "", rejected: false };
+      }
+    };
+
     let signature = "";
-    try {
-      if (msgHex) signature = await provider.request({ method: "personal_sign", params: [msgHex, addr] });
-      else signature = await provider.request({ method: "personal_sign", params: [message, addr] });
-    } catch {
-      signature = "";
+    const s1 = await signOnce([message, addr]);
+    if (s1.sig) signature = s1.sig;
+    else if (!s1.rejected) {
+      const s2 = await signOnce([addr, message]);
+      if (s2.sig) signature = s2.sig;
+      else if (s2.rejected) {
+        toast(t("toast.backendLoginFailed"));
+        state.backend.authed = false;
+        return false;
+      }
     }
     if (!signature) {
       toast(t("toast.backendLoginFailed"));
@@ -1237,8 +1253,24 @@ async function backendEnsureLogin({ interactive } = {}) {
       state.backend.authed = true;
       return true;
     } catch (e) {
-      const msg = String(e?.message || "");
+      const reason = String(e?.message || "");
       const status = Number(e?.status || 0);
+      if ((reason === "signature_mismatch" || reason === "bad_signature") && (status === 400 || status === 401)) {
+        const sig2 = await signOnce([addr, message]);
+        if (sig2.sig) {
+          try {
+            const r3 = await backendFetch("/v1/login", { method: "POST", body: { address: addr, signature: sig2.sig } });
+            const tok2 = r3 && r3.token ? String(r3.token) : "";
+            if (!tok2) throw new Error("no_token");
+            state.backend.token = tok2;
+            setBackendToken(addr, tok2);
+            state.backend.authed = true;
+            return true;
+          } catch {
+          }
+        }
+      }
+      const msg = String(e?.message || "");
       if (msg === "db_unavailable" || status === 503) {
         toast(t("toast.backendUnavailable"));
         state.backend.authed = false;
