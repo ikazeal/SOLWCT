@@ -99,6 +99,17 @@ function getEvmProvider() {
   return list.find((p) => p && (p.isOkxWallet || p.isOKXWallet)) || list[0] || null;
 }
 
+function utf8ToHex(str) {
+  try {
+    const enc = new TextEncoder().encode(String(str || ""));
+    let out = "0x";
+    for (let i = 0; i < enc.length; i++) out += enc[i].toString(16).padStart(2, "0");
+    return out;
+  } catch {
+    return "";
+  }
+}
+
 const I18N = {
   en: {
     "doc.title": "WorldCup Token",
@@ -1193,58 +1204,46 @@ async function backendEnsureLogin({ interactive } = {}) {
     return false;
   }
 
-  const trySign = async (params) => {
-    try {
-      return await provider.request({ method: "personal_sign", params });
-    } catch {
-      return "";
-    }
-  };
-  const sigA = await trySign([message, addr]);
-  const sigB = sigA ? "" : await trySign([addr, message]);
-  let signature = sigA || sigB;
-  if (!signature) {
-    toast(t("toast.backendLoginFailed"));
-    return false;
-  }
+  const msgHex = utf8ToHex(message);
+  const signPayloads = [
+    [message, addr],
+    [addr, message],
+    msgHex ? [msgHex, addr] : null,
+    msgHex ? [addr, msgHex] : null,
+  ].filter(Boolean);
 
-  try {
-    let r2 = null;
+  for (let i = 0; i < signPayloads.length; i++) {
+    const params = signPayloads[i];
+    let signature = "";
     try {
-      r2 = await backendFetch("/v1/login", { method: "POST", body: { address: addr, signature } });
+      signature = await provider.request({ method: "personal_sign", params });
+    } catch {
+      signature = "";
+    }
+    if (!signature) continue;
+    try {
+      const r2 = await backendFetch("/v1/login", { method: "POST", body: { address: addr, signature } });
+      const tok = r2 && r2.token ? String(r2.token) : "";
+      if (!tok) throw new Error("no_token");
+      state.backend.token = tok;
+      setBackendToken(addr, tok);
+      state.backend.authed = true;
+      return true;
     } catch (e) {
       const msg = String(e?.message || "");
-      if ((msg === "bad_signature" || msg === "signature_mismatch") && sigA && !sigB) {
-        const retrySig = await trySign([addr, message]);
-        if (retrySig) {
-          signature = retrySig;
-          r2 = await backendFetch("/v1/login", { method: "POST", body: { address: addr, signature } });
-        } else {
-          throw e;
-        }
-      } else if ((msg === "bad_signature" || msg === "signature_mismatch") && sigB && !sigA) {
-        const retrySig = await trySign([message, addr]);
-        if (retrySig) {
-          signature = retrySig;
-          r2 = await backendFetch("/v1/login", { method: "POST", body: { address: addr, signature } });
-        } else {
-          throw e;
-        }
-      } else {
-        throw e;
+      const status = Number(e?.status || 0);
+      if (msg === "db_unavailable" || status === 503) {
+        toast(t("toast.backendUnavailable"));
+        state.backend.authed = false;
+        return false;
       }
+      if (msg === "bad_signature" || msg === "signature_mismatch") continue;
     }
-    const tok = r2 && r2.token ? String(r2.token) : "";
-    if (!tok) throw new Error("no_token");
-    state.backend.token = tok;
-    setBackendToken(addr, tok);
-    state.backend.authed = true;
-    return true;
-  } catch {
-    toast(t("toast.backendLoginFailed"));
-    state.backend.authed = false;
-    return false;
   }
+
+  toast(t("toast.backendLoginFailed"));
+  state.backend.authed = false;
+  return false;
 }
 
 async function backendSyncMe() {
