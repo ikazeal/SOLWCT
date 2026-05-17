@@ -446,6 +446,15 @@
     </main>
 
     <div class="toastHost" id="toastHost" aria-live="polite" aria-relevant="additions"></div>
-    <script src="./app.js?v=20260517"></script>
+    <script>
+      (() => {
+        const btn = document.getElementById("connectWalletBtn");
+        if (!btn) return;
+        btn.addEventListener("click", () => {
+          if (!window.__WCT_BOOTED) window.alert("页面脚本未加载或异常，请刷新后重试");
+        });
+      })();
+    </script>
+    <script src="./app.js?v=20260517-2"></script>
   </body>
 </html>

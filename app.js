@@ -3549,6 +3549,7 @@ function setupCoin3d() {
 }
 
 function boot() {
+  window.__WCT_BOOTED = false;
   try {
     state.lang = getInitialLang();
     initBackendState();
@@ -3670,6 +3671,7 @@ function boot() {
         })
         .catch(() => {});
     }
+    window.__WCT_BOOTED = true;
   } catch {
     const connectBtn = $("#connectWalletBtn");
     if (connectBtn) connectBtn.addEventListener("click", connectWallet);
