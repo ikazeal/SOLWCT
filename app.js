@@ -51,6 +51,7 @@ const state = {
     lastSyncMs: 0,
     syncing: false,
     leaderboardRows: [],
+    loginPromise: null,
   },
 };
 
@@ -1135,6 +1136,7 @@ function initBackendState() {
   state.backend.lastSyncMs = 0;
   state.backend.syncing = false;
   state.backend.leaderboardRows = [];
+  state.backend.loginPromise = null;
 
   state.rewards.treasuryAddress = getTreasuryAddress();
   state.rewards.lastTreasurySyncMs = 0;
@@ -1173,6 +1175,14 @@ async function backendEnsureLogin({ interactive } = {}) {
   if (!provider || !state.wallet.address) return false;
   const addr = state.wallet.address;
 
+  if (state.backend.loginPromise) {
+    try {
+      return await state.backend.loginPromise;
+    } catch {
+      return false;
+    }
+  }
+
   const token = getBackendToken(addr);
   if (token && token === state.backend.token) {
     try {
@@ -1190,60 +1200,68 @@ async function backendEnsureLogin({ interactive } = {}) {
 
   if (!interactive) return false;
 
-  let nonce = null;
-  try {
-    const r = await backendFetch(`/v1/nonce?address=${encodeURIComponent(addr)}`);
-    nonce = r;
-  } catch {
-    toast(t("toast.backendUnavailable"));
-    return false;
-  }
-  const message = nonce && nonce.message ? String(nonce.message) : "";
-  if (!message) {
-    toast(t("toast.backendLoginFailed"));
-    return false;
-  }
-
-  const msgHex = utf8ToHex(message);
-  const signPayloads = [
-    [message, addr],
-    [addr, message],
-    msgHex ? [msgHex, addr] : null,
-    msgHex ? [addr, msgHex] : null,
-  ].filter(Boolean);
-
-  for (let i = 0; i < signPayloads.length; i++) {
-    const params = signPayloads[i];
-    let signature = "";
+  state.backend.loginPromise = (async () => {
+    let nonce = null;
     try {
-      signature = await provider.request({ method: "personal_sign", params });
+      const r = await backendFetch(`/v1/nonce?address=${encodeURIComponent(addr)}`);
+      nonce = r;
     } catch {
-      signature = "";
+      toast(t("toast.backendUnavailable"));
+      return false;
     }
-    if (!signature) continue;
-    try {
-      const r2 = await backendFetch("/v1/login", { method: "POST", body: { address: addr, signature } });
-      const tok = r2 && r2.token ? String(r2.token) : "";
-      if (!tok) throw new Error("no_token");
-      state.backend.token = tok;
-      setBackendToken(addr, tok);
-      state.backend.authed = true;
-      return true;
-    } catch (e) {
-      const msg = String(e?.message || "");
-      const status = Number(e?.status || 0);
-      if (msg === "db_unavailable" || status === 503) {
-        toast(t("toast.backendUnavailable"));
-        state.backend.authed = false;
-        return false;
-      }
-      if (msg === "bad_signature" || msg === "signature_mismatch") continue;
+    const message = nonce && nonce.message ? String(nonce.message) : "";
+    if (!message) {
+      toast(t("toast.backendLoginFailed"));
+      return false;
     }
-  }
 
-  toast(t("toast.backendLoginFailed"));
-  state.backend.authed = false;
-  return false;
+    const msgHex = utf8ToHex(message);
+    const signPayloads = [
+      [message, addr],
+      [addr, message],
+      msgHex ? [msgHex, addr] : null,
+      msgHex ? [addr, msgHex] : null,
+    ].filter(Boolean);
+
+    for (let i = 0; i < signPayloads.length; i++) {
+      const params = signPayloads[i];
+      let signature = "";
+      try {
+        signature = await provider.request({ method: "personal_sign", params });
+      } catch {
+        signature = "";
+      }
+      if (!signature) continue;
+      try {
+        const r2 = await backendFetch("/v1/login", { method: "POST", body: { address: addr, signature } });
+        const tok = r2 && r2.token ? String(r2.token) : "";
+        if (!tok) throw new Error("no_token");
+        state.backend.token = tok;
+        setBackendToken(addr, tok);
+        state.backend.authed = true;
+        return true;
+      } catch (e) {
+        const msg = String(e?.message || "");
+        const status = Number(e?.status || 0);
+        if (msg === "db_unavailable" || status === 503) {
+          toast(t("toast.backendUnavailable"));
+          state.backend.authed = false;
+          return false;
+        }
+        if (msg === "bad_signature" || msg === "signature_mismatch") continue;
+      }
+    }
+
+    toast(t("toast.backendLoginFailed"));
+    state.backend.authed = false;
+    return false;
+  })();
+
+  try {
+    return await state.backend.loginPromise;
+  } finally {
+    state.backend.loginPromise = null;
+  }
 }
 
 async function backendSyncMe() {
@@ -1798,7 +1816,7 @@ async function connectWallet() {
     updateWalletUI();
     fetchWalletBalances();
     if (state.wallet.address && state.backend.enabled) {
-      backendEnsureLogin({ interactive: true }).then(() => backendSyncAll({ force: true }));
+      backendSyncAll({ force: true });
     }
     toast(state.wallet.address ? t("toast.walletConnected") : t("toast.walletFailed"));
   } catch {
@@ -3364,35 +3382,36 @@ async function placePrediction(matchId, pick) {
   const addr = normAddress(state.wallet.address);
   if (state.backend.enabled) {
     const ok = await backendEnsureLogin({ interactive: true });
-    if (ok) {
-      try {
-        await backendFetch("/v1/predictions", { method: "POST", body: { matchId, pick } });
-        bumpTodayPredictionCount(addr);
-        await backendSyncAll({ force: true });
-        toast(t("toast.predSubmitted", { pick: pickLabelForMatch(match, pick) }));
+    if (!ok) return;
+    try {
+      await backendFetch("/v1/predictions", { method: "POST", body: { matchId, pick } });
+      bumpTodayPredictionCount(addr);
+      await backendSyncAll({ force: true });
+      toast(t("toast.predSubmitted", { pick: pickLabelForMatch(match, pick) }));
+      return;
+    } catch (e) {
+      const msg = String(e?.message || "");
+      const status = Number(e?.status || 0);
+      if (msg === "already_bet") {
+        toast(t("toast.alreadyBet"));
         return;
-      } catch (e) {
-        const msg = String(e?.message || "");
-        const status = Number(e?.status || 0);
-        if (msg === "already_bet") {
-          toast(t("toast.alreadyBet"));
-          return;
-        }
-        if (msg === "bet_closed") {
-          toast(t("toast.betClosed"));
-          return;
-        }
-        if (msg === "daily_limit" || status === 429) {
-          const wholeWct = getWctWholeBalance();
-          const limit = getDailyPredictionLimit(wholeWct);
-          toast(t("toast.dailyLimit", { limit, holdLimit: DAILY_PRED_LIMIT_HOLD }));
-          return;
-        }
-        if (status >= 400 && status < 500) {
-          toast(t("toast.backendBetFailed"));
-          return;
-        }
       }
+      if (msg === "bet_closed") {
+        toast(t("toast.betClosed"));
+        return;
+      }
+      if (msg === "daily_limit" || status === 429) {
+        const wholeWct = getWctWholeBalance();
+        const limit = getDailyPredictionLimit(wholeWct);
+        toast(t("toast.dailyLimit", { limit, holdLimit: DAILY_PRED_LIMIT_HOLD }));
+        return;
+      }
+      if (status >= 400 && status < 500) {
+        toast(t("toast.backendBetFailed"));
+        return;
+      }
+      toast(t("toast.backendUnavailable"));
+      return;
     }
   }
   const pool = getPool(matchId);
