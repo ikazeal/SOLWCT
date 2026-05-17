@@ -1707,6 +1707,7 @@ async function fetchWalletBalances() {
 function updateWalletUI() {
   const label = $("#walletBtnLabel");
   const disconnectBtn = $("#disconnectWalletBtn");
+  const copyAddrBtn = $("#copyWalletAddressBtn");
   const menu = $("#walletMenu");
   const connectBtn = $("#connectWalletBtn");
   const hint = $("#predictionHint");
@@ -1721,6 +1722,10 @@ function updateWalletUI() {
     if (label) label.textContent = truncateAddress(state.wallet.address);
     if (menu) menu.hidden = !state.wallet.walletMenuOpen;
     if (disconnectBtn) disconnectBtn.hidden = false;
+    if (copyAddrBtn) {
+      copyAddrBtn.hidden = false;
+      copyAddrBtn.textContent = state.wallet.address;
+    }
     if (connectBtn) connectBtn.setAttribute("aria-expanded", String(!!state.wallet.walletMenuOpen));
     const wholeWct = getWctWholeBalance();
     const limit = getDailyPredictionLimit(wholeWct);
@@ -1737,6 +1742,7 @@ function updateWalletUI() {
     if (label) label.textContent = t("wallet.connect");
     if (menu) menu.hidden = true;
     if (disconnectBtn) disconnectBtn.hidden = true;
+    if (copyAddrBtn) copyAddrBtn.hidden = true;
     if (connectBtn) connectBtn.setAttribute("aria-expanded", "false");
     if (hint) hint.textContent = t("prediction.hintDisconnected");
     if (matchesHint) matchesHint.textContent = t("prediction.hintDisconnected");
@@ -1746,6 +1752,37 @@ function updateWalletUI() {
   }
   renderMyBets();
   renderLeaderboard();
+}
+
+async function tryRestoreWalletSession() {
+  const provider = getEvmProvider();
+  if (!provider) return;
+  let accounts = null;
+  try {
+    accounts = await provider.request({ method: "eth_accounts" });
+  } catch {
+    accounts = null;
+  }
+  const addr = accounts && accounts[0] ? String(accounts[0]) : "";
+  if (!addr) return;
+  state.wallet.address = addr;
+  state.wallet.connected = true;
+  state.wallet.manualConnected = true;
+  state.wallet.walletMenuOpen = false;
+  try {
+    const chainId = await provider.request({ method: "eth_chainId" });
+    state.wallet.chainId = chainId;
+    if (chainId && chainId !== BSC_CHAIN_ID_HEX) toast(t("toast.switchToBsc"));
+  } catch {
+  }
+  state.wallet.wctDecimals = null;
+  state.wallet.wctBalanceRaw = 0n;
+  state.wallet.lastBalanceSyncMs = 0;
+  initBackendState();
+  hydrateRewardsFromAddress();
+  updateWalletUI();
+  fetchWalletBalances();
+  if (state.backend.enabled) backendSyncAll({ force: true });
 }
 
 async function ensureBscNetwork() {
@@ -3652,6 +3689,7 @@ function boot() {
     updateWalletUI();
     hydrateRewardsFromAddress();
     setupWalletListeners();
+    tryRestoreWalletSession();
 
     const connectBtn = $("#connectWalletBtn");
     if (connectBtn) {
@@ -3667,6 +3705,19 @@ function boot() {
     }
     const disconnectBtn = $("#disconnectWalletBtn");
     if (disconnectBtn) disconnectBtn.addEventListener("click", disconnectWallet);
+    const copyWalletBtn = $("#copyWalletAddressBtn");
+    if (copyWalletBtn) {
+      copyWalletBtn.addEventListener("click", async () => {
+        const addr = state.wallet.address ? String(state.wallet.address) : "";
+        if (!addr) return;
+        try {
+          await copyText(addr);
+          toast(state.lang === "zh" ? "钱包地址已复制" : "Wallet address copied");
+        } catch {
+          toast(t("toast.copyFailed"));
+        }
+      });
+    }
     const myPredBtn = $("#myPredictionsBtn");
     if (myPredBtn) {
       myPredBtn.addEventListener("click", () => {

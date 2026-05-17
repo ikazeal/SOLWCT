@@ -203,6 +203,13 @@ button{font:inherit}
   width:100%;
   justify-content:flex-start;
 }
+.walletMenu__addr{
+  font-size:12px;
+  line-height:1.25;
+  white-space:normal;
+  word-break:break-all;
+  opacity:.92;
+}
 
 .pointsPill{
   display:inline-flex;
