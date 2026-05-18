@@ -435,7 +435,7 @@ app.get("/v1/me", auth, wrap(async (req, res) => {
 }));
 
 app.get("/v1/leaderboard", wrap(async (req, res) => {
-  const limit = Math.max(1, Math.min(50, safeInt(req.query.limit, 10)));
+  const limit = Math.max(1, Math.min(100, safeInt(req.query.limit, 10)));
   const eligibleMin = Math.max(1, Math.min(1000, safeInt(req.query.eligibleMin, 20)));
   const q = await dbQuery(
     `
@@ -457,11 +457,11 @@ app.get("/v1/leaderboard", wrap(async (req, res) => {
         case when settled > 0 then (correct::float / settled) else 0 end as win_rate,
         case when settled > 0 then (correct::float / settled) * ln(1 + settled) else 0 end as score
       from stats
-      where total >= 1
-      order by score desc, total desc, address asc
+      where settled >= $2
+      order by score desc, win_rate desc, settled desc, correct desc, address asc
       limit $1
     `,
-    [limit],
+    [limit, eligibleMin],
   );
   const rows = (q.rows || []).map((r) => ({
     address: normAddress(r.address),
@@ -470,7 +470,7 @@ app.get("/v1/leaderboard", wrap(async (req, res) => {
     correct: clampInt(r.correct, 0),
     winRate: Number(r.win_rate || 0),
     score: Number(r.score || 0),
-    eligible: clampInt(r.total, 0) >= eligibleMin,
+    eligible: clampInt(r.settled, 0) >= eligibleMin,
   }));
   jsonOk(res, { rows });
 }));

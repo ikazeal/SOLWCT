@@ -1490,8 +1490,9 @@ async function backendSyncMe() {
 
 async function backendSyncLeaderboard() {
   if (!state.backend.enabled) return;
-  const r = await backendFetch("/v1/leaderboard?limit=10&eligibleMin=20");
-  const rows = Array.isArray(r?.rows) ? r.rows : [];
+  const r = await backendFetch("/v1/leaderboard?limit=100&eligibleMin=20");
+  const rowsRaw = Array.isArray(r?.rows) ? r.rows : [];
+  const rows = rowsRaw.filter((x) => Boolean(x?.eligible));
   state.backend.leaderboardRows = rows;
   const addrs = rows.map((x) => normAddress(x.address)).filter(Boolean);
   localStorage.setItem(leaderboardIndexKey(), JSON.stringify(addrs));
