@@ -2402,13 +2402,6 @@ function drawChart() {
   const snapDelta = snap ? pickChangeForRange(snap, state.chart.range) : null;
   const deltaPct = typeof snapDelta === "number" && Number.isFinite(snapDelta) ? snapDelta : delta;
 
-  const marketLive =
-    snap &&
-    (snap.source === "rpc" || snap.source === "dexscreener") &&
-    typeof snap.priceUsd === "number" &&
-    Number.isFinite(snap.priceUsd) &&
-    snap.priceUsd > 0;
-
   const priceText = marketLive ? formatPriceUsd(snapPrice) : "--";
   setText("midPriceValue", priceText);
   setText("miniPrice", priceText);
