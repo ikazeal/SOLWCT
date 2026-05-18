@@ -67,7 +67,7 @@ button{font:inherit}
     radial-gradient(750px 280px at 50% 62%, rgba(122,43,255,.28), transparent 68%);
   opacity:.9;
   animation:fxLights 18s ease-in-out infinite;
-  will-change:transform, filter, opacity;
+  will-change:transform, opacity;
 }
 .bg__sparkles{
   position:absolute;inset:0;
@@ -501,9 +501,9 @@ button{font:inherit}
 }
 
 @keyframes fxLights{
-  0%{transform:translate3d(0,0,0) scale(1);filter:hue-rotate(0deg);opacity:.85}
-  50%{transform:translate3d(0,14px,0) scale(1.02);filter:hue-rotate(8deg);opacity:.92}
-  100%{transform:translate3d(0,0,0) scale(1);filter:hue-rotate(0deg);opacity:.88}
+  0%{transform:translate3d(0,0,0) scale(1);opacity:.86}
+  50%{transform:translate3d(0,16px,0) scale(1.03);opacity:.96}
+  100%{transform:translate3d(0,0,0) scale(1);opacity:.9}
 }
 
 @keyframes fxTwinkle{
@@ -1505,16 +1505,26 @@ canvas{display:block;width:100%;height:auto}
 
 .fx-reveal{
   opacity:0;
-  transform:translate3d(0,12px,0);
-  filter:blur(8px);
-  transition:opacity .7s ease, transform .7s cubic-bezier(.2,.9,.2,1), filter .7s ease;
+  transform:translate3d(0,14px,0) scale(.992);
+  filter:blur(6px);
+  transition:opacity .65s ease, transform .65s cubic-bezier(.2,.9,.2,1), filter .65s ease;
   transition-delay:var(--reveal-delay, 0ms);
   will-change:opacity, transform, filter;
 }
 .fx-reveal.is-inview{
   opacity:1;
-  transform:translate3d(0,0,0);
+  transform:translate3d(0,0,0) scale(1);
   filter:blur(0);
+}
+
+@keyframes fxModalBackdropIn{
+  from{opacity:0}
+  to{opacity:1}
+}
+
+@keyframes fxToastIn{
+  from{opacity:0;transform:translate3d(0,10px,0)}
+  to{opacity:1;transform:translate3d(0,0,0)}
 }
 
 @media (prefers-reduced-motion: reduce){
@@ -2015,6 +2025,7 @@ body[data-page="whitepaper"] .wpAllocNote{
   background:rgba(0,0,0,.55);
   backdrop-filter:blur(10px);
 }
+.modal.is-open .modal__backdrop{animation:fxModalBackdropIn .22s ease both}
 .modal__panel{
   position:relative;
   width:min(420px, calc(100% - 32px));
@@ -2070,6 +2081,7 @@ body[data-page="whitepaper"] .wpAllocNote{
   justify-content:space-between;
   align-items:flex-start;
   gap:12px;
+  animation:fxToastIn .26s cubic-bezier(.2,.9,.2,1) both;
 }
 .toast__msg{color:rgba(244,240,255,.88);font-weight:700;line-height:1.35}
 .toast__close{
