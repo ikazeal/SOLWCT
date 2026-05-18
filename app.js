@@ -2361,34 +2361,44 @@ function drawChart() {
   const delta = first > 0 ? ((last - first) / first) * 100 : 0;
   const snapDelta = snap ? pickChangeForRange(snap, state.chart.range) : null;
   const deltaPct = typeof snapDelta === "number" && Number.isFinite(snapDelta) ? snapDelta : delta;
-  const isUp = deltaPct >= 0;
-  const priceText = snapPrice ? formatPriceUsd(snapPrice) : formatPriceUsd(last);
-  const deltaText = t("chart.deltaFormat", { sign: isUp ? "+" : "", pct: Number(deltaPct).toFixed(2), range: state.chart.range });
 
+  const marketLive =
+    snap &&
+    (snap.source === "rpc" || snap.source === "dexscreener") &&
+    typeof snap.priceUsd === "number" &&
+    Number.isFinite(snap.priceUsd) &&
+    snap.priceUsd > 0;
+
+  const priceText = marketLive ? formatPriceUsd(snapPrice) : "--";
   setText("midPriceValue", priceText);
   setText("miniPrice", priceText);
 
   const miniPriceDelta = $("#miniPriceDelta");
   if (miniPriceDelta) {
-    const d24 = snap && typeof snap.change24h === "number" && Number.isFinite(snap.change24h) ? snap.change24h : deltaPct;
-    const up24 = d24 >= 0;
-    miniPriceDelta.textContent = t("chart.deltaFormat", { sign: up24 ? "+" : "", pct: Number(d24).toFixed(2), range: "24H" });
-    miniPriceDelta.classList.toggle("up", up24);
-    miniPriceDelta.classList.toggle("down", !up24);
+    if (!marketLive) {
+      miniPriceDelta.textContent = "--";
+      miniPriceDelta.classList.remove("up");
+      miniPriceDelta.classList.remove("down");
+    } else {
+      const d24 = snap && typeof snap.change24h === "number" && Number.isFinite(snap.change24h) ? snap.change24h : deltaPct;
+      const up24 = d24 >= 0;
+      miniPriceDelta.textContent = t("chart.deltaFormat", { sign: up24 ? "+" : "", pct: Number(d24).toFixed(2), range: "24H" });
+      miniPriceDelta.classList.toggle("up", up24);
+      miniPriceDelta.classList.toggle("down", !up24);
+    }
   }
 
-  const vol = snap && typeof snap.volume24hUsd === "number" && Number.isFinite(snap.volume24hUsd) ? snap.volume24hUsd : 2345678 * (0.8 + Math.abs(deltaPct) / 90);
-  const liq = snap && typeof snap.liquidityUsd === "number" && Number.isFinite(snap.liquidityUsd) ? snap.liquidityUsd : 1234567 * (0.85 + Math.abs(deltaPct) / 110);
+  const vol = marketLive && snap && typeof snap.volume24hUsd === "number" && Number.isFinite(snap.volume24hUsd) ? snap.volume24hUsd : null;
+  const liq = marketLive && snap && typeof snap.liquidityUsd === "number" && Number.isFinite(snap.liquidityUsd) ? snap.liquidityUsd : null;
   const mcap =
-    snap && typeof snap.marketCap === "number" && Number.isFinite(snap.marketCap) && snap.marketCap > 0 ? snap.marketCap : 12345678 * (0.85 + Math.abs(deltaPct) / 120);
+    marketLive && snap && typeof snap.marketCap === "number" && Number.isFinite(snap.marketCap) && snap.marketCap > 0 ? snap.marketCap : null;
 
-  setText("midVolValue", formatUSD(vol));
-  setText("midLiqValue", formatUSD(liq));
-  setText("miniMcap", snap?.mcText ? snap.mcText : formatUSD(mcap));
-  setText("miniVol", formatUSD(vol));
+  setText("midVolValue", vol === null ? "--" : formatUSD(vol));
+  setText("midLiqValue", liq === null ? "--" : formatUSD(liq));
+  setText("miniMcap", mcap === null ? "--" : formatUSD(mcap));
+  setText("miniVol", vol === null ? "--" : formatUSD(vol));
 
-  const holders = Math.round(12345 * (0.92 + Math.abs(deltaPct) / 320));
-  setText("miniHolders", holders.toLocaleString());
+  setText("miniHolders", "--");
 }
 
 function drawOverview() {
