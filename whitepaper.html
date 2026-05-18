@@ -61,7 +61,7 @@
           <div class="whitepaperBody">
             <div class="wpLang wpLang--zh">
               <div class="wpContent">
-                <h1>WorldCup Token（WCT）白皮书（正式版草案）</h1>
+                <h1>WorldCup Token（WCT）白皮书</h1>
                 <p>本白皮书用于说明 WCT 产品的目标、功能、赛事预测机制、奖池展示口径与风险提示。本文件仅为信息披露与产品说明，不构成任何要约、招揽、投资建议、法律意见或税务意见。</p>
 
                 <div class="wpToc">
@@ -107,7 +107,7 @@
                 <h3>3.1 当前实现形态</h3>
                 <ul>
                   <li><b>前端站点</b>：用于展示赛程、预测交互、排行榜与奖励信息。</li>
-                  <li><b>存储模式</b>：可运行于“本地演示存储（浏览器 localStorage）”或“后端存储（API + 服务器持久化）”。具体以部署配置为准。</li>
+                  <li><b>存储模式</b>：后端存储（API + 服务器持久化）。</li>
                   <li><b>链上读取</b>：页面会通过 BSC RPC 读取合约与奖池地址数据（例如奖池地址 BNB 余额）。</li>
                 </ul>
 
@@ -123,22 +123,7 @@
                   <li><b>提交限制</b>：同一钱包同一场比赛通常仅可提交一次（以页面实现与活动公告为准）。</li>
                   <li><b>不涉及下注/积分</b>：预测不需要支付积分或下注金额。</li>
                   <li><b>每日次数</b>：持有 <b>&lt; 100,000 WCT</b> 的钱包每日最多提交 <b>1</b> 次预测；持有 <b>≥ 100,000 WCT</b> 的钱包每日最多提交 <b>5</b> 次预测。</li>
-                  <li><b>持币奖励加成</b>：用于活动奖励结算时的加成系数（不改变比赛结果）。</li>
                 </ul>
-                <div class="wpBoostBox" aria-label="Holding boost tiers">
-                  <div class="wpBoostItem">
-                    <div class="wpBoostTier mono">≥ 10,000,000 WCT</div>
-                    <div class="wpBoostMul">2X</div>
-                  </div>
-                  <div class="wpBoostItem">
-                    <div class="wpBoostTier mono">≥ 5,000,000 WCT</div>
-                    <div class="wpBoostMul">1.5X</div>
-                  </div>
-                  <div class="wpBoostItem">
-                    <div class="wpBoostTier mono">≥ 1,000,000 WCT</div>
-                    <div class="wpBoostMul">1X</div>
-                  </div>
-                </div>
 
                 <h2 id="zh-betting">5. 预测规则与支持率</h2>
                 <ul>
@@ -189,28 +174,24 @@
                     <div class="wpAllocGroup">
                       <div class="wpAllocSubhead">
                         <div class="wpAllocSubTitle">奖池相关</div>
-                        <div class="wpAllocSubBadge mono">70%</div>
+                        <div class="wpAllocSubBadge mono">80%</div>
                       </div>
                       <div class="wpAllocGrid wpAllocGrid--2">
                         <div class="wpAllocItem">
-                          <div class="wpAllocLabel">营销</div>
-                          <div class="wpAllocPct">0%</div>
-                        </div>
-                        <div class="wpAllocItem">
                           <div class="wpAllocLabel">奖励</div>
-                          <div class="wpAllocPct">70%</div>
+                          <div class="wpAllocPct">80%</div>
                         </div>
                       </div>
                     </div>
                     <div class="wpAllocGroup">
                       <div class="wpAllocSubhead">
                         <div class="wpAllocSubTitle">回购与流动性</div>
-                        <div class="wpAllocSubBadge mono">30%</div>
+                        <div class="wpAllocSubBadge mono">20%</div>
                       </div>
                       <div class="wpAllocGrid wpAllocGrid--2">
                         <div class="wpAllocItem">
                           <div class="wpAllocLabel">回购销毁</div>
-                          <div class="wpAllocPct">20%</div>
+                          <div class="wpAllocPct">10%</div>
                         </div>
                         <div class="wpAllocItem">
                           <div class="wpAllocLabel">流动性支持</div>
@@ -219,7 +200,7 @@
                       </div>
                     </div>
                   </div>
-                  <div class="wpAllocNote">交易税费的 <b>70%</b> 用于发放奖励；剩余 <b>30%</b>（<b>20%</b> 用于回购销毁、<b>10%</b> 用于流动性支持）。具体执行以链上交易与公告为准。</div>
+                  <div class="wpAllocNote">交易税费的 <b>80%</b> 用于发放奖励；剩余 <b>20%</b>（<b>10%</b> 用于回购销毁、<b>10%</b> 用于流动性支持）。具体执行以链上交易与公告为准。</div>
                 </div>
 
                 <h2 id="zh-compliance">9. 合规与法律风险提示</h2>
@@ -252,7 +233,7 @@
 
             <div class="wpLang wpLang--en">
               <div class="wpContent">
-                <h1>WorldCup Token (WCT) Whitepaper (Formal Draft)</h1>
+                <h1>WorldCup Token (WCT) Whitepaper</h1>
                 <p>This whitepaper describes the WCT product objectives, match prediction mechanics, prize pool display logic, and key risk disclosures. This document is informational only and does not constitute an offer, solicitation, investment advice, legal advice, or tax advice.</p>
 
                 <div class="wpToc">
@@ -298,7 +279,7 @@
                 <h3>3.1 Implementation Modes</h3>
                 <ul>
                   <li><b>Front-end</b>: displays fixtures, prediction UI, leaderboard, and rewards.</li>
-                  <li><b>Storage</b>: may run in a local demo mode (browser localStorage) or a server-backed mode (API + persistent storage), depending on deployment configuration.</li>
+                  <li><b>Storage</b>: backend storage (API + persistent server storage).</li>
                   <li><b>On-chain reads</b>: the website reads on-chain data via public BSC RPC endpoints (e.g., prize pool BNB balance).</li>
                 </ul>
 
@@ -314,22 +295,7 @@
                   <li><b>Limit</b>: typically one prediction per wallet per match (subject to the website implementation and campaign announcements).</li>
                   <li><b>No staking</b>: predictions do not require staking points or any wager amount.</li>
                   <li><b>Daily quota</b>: wallets holding <b>&lt; 100,000 WCT</b> can submit up to <b>1</b> prediction per day; wallets holding <b>≥ 100,000 WCT</b> can submit up to <b>5</b> predictions per day.</li>
-                  <li><b>Holding reward boost</b>: an optional multiplier applied when calculating campaign rewards (does not change match outcomes).</li>
                 </ul>
-                <div class="wpBoostBox" aria-label="Holding boost tiers">
-                  <div class="wpBoostItem">
-                    <div class="wpBoostTier mono">≥ 10,000,000 WCT</div>
-                    <div class="wpBoostMul">2X</div>
-                  </div>
-                  <div class="wpBoostItem">
-                    <div class="wpBoostTier mono">≥ 5,000,000 WCT</div>
-                    <div class="wpBoostMul">1.5X</div>
-                  </div>
-                  <div class="wpBoostItem">
-                    <div class="wpBoostTier mono">≥ 1,000,000 WCT</div>
-                    <div class="wpBoostMul">1X</div>
-                  </div>
-                </div>
 
                 <h2 id="en-betting">5. Prediction Rules</h2>
                 <ul>
@@ -380,28 +346,24 @@
                     <div class="wpAllocGroup">
                       <div class="wpAllocSubhead">
                         <div class="wpAllocSubTitle">Prize-related</div>
-                        <div class="wpAllocSubBadge mono">70%</div>
+                        <div class="wpAllocSubBadge mono">80%</div>
                       </div>
                       <div class="wpAllocGrid wpAllocGrid--2">
                         <div class="wpAllocItem">
-                          <div class="wpAllocLabel">Marketing</div>
-                          <div class="wpAllocPct">0%</div>
-                        </div>
-                        <div class="wpAllocItem">
                           <div class="wpAllocLabel">Rewards</div>
-                          <div class="wpAllocPct">70%</div>
+                          <div class="wpAllocPct">80%</div>
                         </div>
                       </div>
                     </div>
                     <div class="wpAllocGroup">
                       <div class="wpAllocSubhead">
                         <div class="wpAllocSubTitle">Buyback & liquidity</div>
-                        <div class="wpAllocSubBadge mono">30%</div>
+                        <div class="wpAllocSubBadge mono">20%</div>
                       </div>
                       <div class="wpAllocGrid wpAllocGrid--2">
                         <div class="wpAllocItem">
                           <div class="wpAllocLabel">Buyback & burn</div>
-                          <div class="wpAllocPct">20%</div>
+                          <div class="wpAllocPct">10%</div>
                         </div>
                         <div class="wpAllocItem">
                           <div class="wpAllocLabel">Liquidity support</div>
@@ -410,7 +372,7 @@
                       </div>
                     </div>
                   </div>
-                  <div class="wpAllocNote"><b>70%</b> of trading tax is used for rewards distribution. The remaining <b>30%</b> is split into <b>20%</b> buyback & burn and <b>10%</b> liquidity support. Execution is subject to on-chain transactions and announcements.</div>
+                  <div class="wpAllocNote"><b>80%</b> of trading tax is used for rewards distribution. The remaining <b>20%</b> is split into <b>10%</b> buyback & burn and <b>10%</b> liquidity support. Execution is subject to on-chain transactions and announcements.</div>
                 </div>
 
                 <h2 id="en-compliance">9. Compliance & Legal Risk Disclosures</h2>
@@ -455,6 +417,6 @@
         });
       })();
     </script>
-    <script src="./app.js?v=20260517-13"></script>
+    <script src="./app.js?v=20260517-14"></script>
   </body>
 </html>
