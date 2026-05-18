@@ -1664,6 +1664,95 @@ body[data-page="whitepaper"] .wpAllocBox{
   background:linear-gradient(135deg, rgba(12,8,22,.62), rgba(8,6,16,.26));
   box-shadow:0 20px 70px rgba(0,0,0,.34);
 }
+
+body[data-page="whitepaper"] .wpPrizeBox{
+  margin:10px 0 14px;
+  padding:12px 12px;
+  border-radius:18px;
+  border:1px solid rgba(171,107,255,.18);
+  background:linear-gradient(135deg, rgba(12,8,22,.62), rgba(8,6,16,.26));
+  box-shadow:0 20px 70px rgba(0,0,0,.34);
+}
+body[data-page="whitepaper"] .wpPrizeRows{display:flex;flex-direction:column;gap:10px}
+body[data-page="whitepaper"] .wpPrizeRow{
+  display:grid;
+  grid-template-columns:140px 1fr;
+  gap:12px;
+  border-radius:16px;
+  border:1px solid rgba(171,107,255,.16);
+  background:rgba(9,6,18,.28);
+  padding:10px 10px;
+}
+body[data-page="whitepaper"] .wpPrizeKey{
+  font-weight:950;
+  font-size:11px;
+  letter-spacing:.14em;
+  color:rgba(244,240,255,.68);
+  text-transform:uppercase;
+}
+body[data-page="whitepaper"] .wpPrizeVal{
+  font-weight:800;
+  font-size:12px;
+  color:rgba(244,240,255,.82);
+  line-height:1.6;
+  min-width:0;
+  overflow-wrap:anywhere;
+}
+
+body[data-page="whitepaper"] .wpPrizeGrid{
+  display:grid;
+  grid-template-columns:1.2fr .8fr;
+  gap:12px;
+  margin:10px 0 14px;
+}
+body[data-page="whitepaper"] .wpPrizeCard{
+  border-radius:18px;
+  border:1px solid rgba(171,107,255,.18);
+  background:linear-gradient(135deg, rgba(12,8,22,.62), rgba(8,6,16,.26));
+  box-shadow:0 20px 70px rgba(0,0,0,.34);
+  padding:12px 12px;
+}
+body[data-page="whitepaper"] .wpPrizeCard__title{
+  font-weight:950;
+  letter-spacing:.06em;
+  font-size:12px;
+  color:rgba(244,240,255,.88);
+  margin-bottom:10px;
+}
+body[data-page="whitepaper"] .wpPrizeText{
+  margin:0 0 10px;
+  color:rgba(244,240,255,.72);
+  line-height:1.7;
+}
+body[data-page="whitepaper"] .wpPrizeFoot{
+  font-weight:800;
+  font-size:12px;
+  color:rgba(244,240,255,.62);
+  line-height:1.7;
+}
+body[data-page="whitepaper"] .wpPrizeTable{display:flex;flex-direction:column;gap:8px}
+body[data-page="whitepaper"] .wpPrizeTr{
+  display:grid;
+  grid-template-columns:1fr 88px;
+  gap:10px;
+  align-items:center;
+  border-radius:16px;
+  border:1px solid rgba(171,107,255,.16);
+  background:rgba(9,6,18,.28);
+  padding:10px 10px;
+}
+body[data-page="whitepaper"] .wpPrizeTd{
+  font-weight:900;
+  font-size:12px;
+  color:rgba(244,240,255,.82);
+}
+body[data-page="whitepaper"] .wpPrizeTd--pct{
+  text-align:right;
+  font-weight:950;
+  font-size:14px;
+  letter-spacing:.08em;
+  color:rgba(180,92,255,.98);
+}
 body[data-page="whitepaper"] .wpAllocHead{
   display:flex;
   align-items:center;
@@ -1753,6 +1842,8 @@ body[data-page="whitepaper"] .wpAllocNote{
   body[data-page="whitepaper"] .wpAllocGrid{grid-template-columns:1fr}
   body[data-page="whitepaper"] .wpAllocHead{flex-direction:column;align-items:flex-start}
   body[data-page="whitepaper"] .wpAllocSubhead{flex-direction:column;align-items:flex-start}
+  body[data-page="whitepaper"] .wpPrizeGrid{grid-template-columns:1fr}
+  body[data-page="whitepaper"] .wpPrizeRow{grid-template-columns:1fr}
 }
 .predGrid{
   display:grid;

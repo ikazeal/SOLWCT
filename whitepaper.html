@@ -121,7 +121,6 @@
                 <ul>
                   <li><b>提交方式</b>：连接钱包后，对每场比赛选择主胜 / 平局 / 客胜并提交。</li>
                   <li><b>提交限制</b>：同一钱包同一场比赛通常仅可提交一次（以页面实现与活动公告为准）。</li>
-                  <li><b>不涉及下注/积分</b>：预测不需要支付积分或下注金额。</li>
                   <li><b>每日次数</b>：持有 <b>&lt; 100,000 WCT</b> 的钱包每日最多提交 <b>1</b> 次预测；持有 <b>≥ 100,000 WCT</b> 的钱包每日最多提交 <b>5</b> 次预测。</li>
                 </ul>
 
@@ -149,22 +148,60 @@
 
                 <h2 id="zh-prize">8. 奖池展示与获奖机制</h2>
                 <h3>8.1 奖池展示口径（链上同步）</h3>
-                <ul>
-                  <li><b>奖池地址</b>：0xfed911c7463e0cd88192d3ae74b8e7dc77504744</li>
-                  <li><b>展示口径</b>：页面显示该地址在 BNB Smart Chain 上的 <b>BNB 余额</b>（通过公开 RPC 读取）。</li>
-                  <li><b>重要说明</b>：奖池余额不代表必然发放额度或必然收益，具体发放以每期活动规则与公告为准。</li>
-                </ul>
+                <div class="wpPrizeBox" aria-label="Prize pool display (on-chain)">
+                  <div class="wpPrizeRows">
+                    <div class="wpPrizeRow">
+                      <div class="wpPrizeKey">奖池地址</div>
+                      <div class="wpPrizeVal mono">0xfed911c7463e0cd88192d3ae74b8e7dc77504744</div>
+                    </div>
+                    <div class="wpPrizeRow">
+                      <div class="wpPrizeKey">验证</div>
+                      <div class="wpPrizeVal">资金奖励会锁定在 PinkSale 上，公开验证。</div>
+                    </div>
+                    <div class="wpPrizeRow">
+                      <div class="wpPrizeKey">展示口径</div>
+                      <div class="wpPrizeVal">页面显示该地址在 BNB Smart Chain 上的 <b>BNB 余额</b>（通过公开 RPC 读取）。</div>
+                    </div>
+                    <div class="wpPrizeRow">
+                      <div class="wpPrizeKey">重要说明</div>
+                      <div class="wpPrizeVal">奖池余额不代表必然发放额度或必然收益，具体发放以每期活动规则与公告为准。</div>
+                    </div>
+                  </div>
+                </div>
 
                 <h3>8.2 获奖机制（Top 5）</h3>
-                <p>每期活动形成“总奖池”，用于排行榜奖励与生态增长。排行榜按综合评分排名（结合有效场次门槛与同分规则），最终排名前 5 名可获得奖池奖励。</p>
-                <ul>
-                  <li>第 1 名：总奖池的 40%</li>
-                  <li>第 2 名：总奖池的 20%</li>
-                  <li>第 3 名：总奖池的 10%</li>
-                  <li>第 4 名：总奖池的 5%</li>
-                  <li>第 5 名：总奖池的 5%</li>
-                </ul>
-                <p><b>剩余 20%</b>：用于活动营销与“每期比赛预测命中额外奖励”。具体发放时间、资格与规则以每期活动公告为准。</p>
+                <div class="wpPrizeGrid" aria-label="Winner mechanism (Top 5)">
+                  <div class="wpPrizeCard">
+                    <div class="wpPrizeCard__title">规则说明</div>
+                    <p class="wpPrizeText">每期活动形成“总奖池”，用于排行榜奖励与活动运营。排行榜按综合评分排名（结合有效场次门槛与同分规则），最终排名前 5 名可获得奖池奖励。</p>
+                    <div class="wpPrizeFoot"><b>剩余 20%</b>：用于活动运营与“每期比赛预测命中额外奖励”。具体发放时间、资格与规则以每期活动公告为准。</div>
+                  </div>
+                  <div class="wpPrizeCard">
+                    <div class="wpPrizeCard__title">Top 5 分配</div>
+                    <div class="wpPrizeTable" role="table" aria-label="Top 5 payout table">
+                      <div class="wpPrizeTr" role="row">
+                        <div class="wpPrizeTd" role="cell">第 1 名</div>
+                        <div class="wpPrizeTd wpPrizeTd--pct mono" role="cell">40%</div>
+                      </div>
+                      <div class="wpPrizeTr" role="row">
+                        <div class="wpPrizeTd" role="cell">第 2 名</div>
+                        <div class="wpPrizeTd wpPrizeTd--pct mono" role="cell">20%</div>
+                      </div>
+                      <div class="wpPrizeTr" role="row">
+                        <div class="wpPrizeTd" role="cell">第 3 名</div>
+                        <div class="wpPrizeTd wpPrizeTd--pct mono" role="cell">10%</div>
+                      </div>
+                      <div class="wpPrizeTr" role="row">
+                        <div class="wpPrizeTd" role="cell">第 4 名</div>
+                        <div class="wpPrizeTd wpPrizeTd--pct mono" role="cell">5%</div>
+                      </div>
+                      <div class="wpPrizeTr" role="row">
+                        <div class="wpPrizeTd" role="cell">第 5 名</div>
+                        <div class="wpPrizeTd wpPrizeTd--pct mono" role="cell">5%</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <div class="wpAllocBox" aria-label="Tax plan allocation">
                   <div class="wpAllocHead">
                     <div class="wpAllocTitle">税费规划</div>
@@ -293,7 +330,6 @@
                 <ul>
                   <li><b>Submission</b>: after connecting a wallet, users submit one of Home / Draw / Away for a match.</li>
                   <li><b>Limit</b>: typically one prediction per wallet per match (subject to the website implementation and campaign announcements).</li>
-                  <li><b>No staking</b>: predictions do not require staking points or any wager amount.</li>
                   <li><b>Daily quota</b>: wallets holding <b>&lt; 100,000 WCT</b> can submit up to <b>1</b> prediction per day; wallets holding <b>≥ 100,000 WCT</b> can submit up to <b>5</b> predictions per day.</li>
                 </ul>
 
@@ -321,22 +357,60 @@
 
                 <h2 id="en-prize">8. Prize Pool Display & Winner Mechanism</h2>
                 <h3>8.1 On-chain prize pool display</h3>
-                <ul>
-                  <li><b>Prize pool address</b>: 0xfed911c7463e0cd88192d3ae74b8e7dc77504744</li>
-                  <li><b>Display logic</b>: the website displays the <b>on-chain BNB balance</b> of this address (read via public BSC RPC).</li>
-                  <li><b>Important</b>: the displayed balance is not a promise of payout. Actual distribution is determined by each campaign’s published rules.</li>
-                </ul>
+                <div class="wpPrizeBox" aria-label="Prize pool display (on-chain)">
+                  <div class="wpPrizeRows">
+                    <div class="wpPrizeRow">
+                      <div class="wpPrizeKey">Prize pool address</div>
+                      <div class="wpPrizeVal mono">0xfed911c7463e0cd88192d3ae74b8e7dc77504744</div>
+                    </div>
+                    <div class="wpPrizeRow">
+                      <div class="wpPrizeKey">Verification</div>
+                      <div class="wpPrizeVal">Reward funds are locked on PinkSale for public verification.</div>
+                    </div>
+                    <div class="wpPrizeRow">
+                      <div class="wpPrizeKey">Display logic</div>
+                      <div class="wpPrizeVal">the website displays the <b>on-chain BNB balance</b> of this address (read via public BSC RPC).</div>
+                    </div>
+                    <div class="wpPrizeRow">
+                      <div class="wpPrizeKey">Important</div>
+                      <div class="wpPrizeVal">the displayed balance is not a promise of payout. Actual distribution is determined by each campaign’s published rules.</div>
+                    </div>
+                  </div>
+                </div>
 
                 <h3>8.2 Winner mechanism (Top 5)</h3>
-                <p>Each campaign period forms a “total prize pool” used for leaderboard rewards and ecosystem growth. The leaderboard is ranked by the composite score (with minimum-match requirements and tie-breakers), and the top 5 wallets receive prize pool rewards.</p>
-                <ul>
-                  <li>Rank #1: 40% of the total prize pool</li>
-                  <li>Rank #2: 20% of the total prize pool</li>
-                  <li>Rank #3: 10% of the total prize pool</li>
-                  <li>Rank #4: 5% of the total prize pool</li>
-                  <li>Rank #5: 5% of the total prize pool</li>
-                </ul>
-                <p><b>Remaining 20%</b>: used for marketing campaigns and per-match extra rewards. Timing, eligibility, and exact rules will be announced per campaign.</p>
+                <div class="wpPrizeGrid" aria-label="Winner mechanism (Top 5)">
+                  <div class="wpPrizeCard">
+                    <div class="wpPrizeCard__title">Rule summary</div>
+                    <p class="wpPrizeText">Each campaign period forms a “total prize pool” used for leaderboard rewards and campaign operations. The leaderboard is ranked by the composite score (with minimum-match requirements and tie-breakers), and the top 5 wallets receive prize pool rewards.</p>
+                    <div class="wpPrizeFoot"><b>Remaining 20%</b>: used for campaign operations and per-match extra rewards. Timing, eligibility, and exact rules will be announced per campaign.</div>
+                  </div>
+                  <div class="wpPrizeCard">
+                    <div class="wpPrizeCard__title">Top 5 allocation</div>
+                    <div class="wpPrizeTable" role="table" aria-label="Top 5 payout table">
+                      <div class="wpPrizeTr" role="row">
+                        <div class="wpPrizeTd" role="cell">Rank #1</div>
+                        <div class="wpPrizeTd wpPrizeTd--pct mono" role="cell">40%</div>
+                      </div>
+                      <div class="wpPrizeTr" role="row">
+                        <div class="wpPrizeTd" role="cell">Rank #2</div>
+                        <div class="wpPrizeTd wpPrizeTd--pct mono" role="cell">20%</div>
+                      </div>
+                      <div class="wpPrizeTr" role="row">
+                        <div class="wpPrizeTd" role="cell">Rank #3</div>
+                        <div class="wpPrizeTd wpPrizeTd--pct mono" role="cell">10%</div>
+                      </div>
+                      <div class="wpPrizeTr" role="row">
+                        <div class="wpPrizeTd" role="cell">Rank #4</div>
+                        <div class="wpPrizeTd wpPrizeTd--pct mono" role="cell">5%</div>
+                      </div>
+                      <div class="wpPrizeTr" role="row">
+                        <div class="wpPrizeTd" role="cell">Rank #5</div>
+                        <div class="wpPrizeTd wpPrizeTd--pct mono" role="cell">5%</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <div class="wpAllocBox" aria-label="Tax plan allocation">
                   <div class="wpAllocHead">
                     <div class="wpAllocTitle">Tax plan</div>
