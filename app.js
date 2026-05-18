@@ -177,6 +177,9 @@ const I18N = {
     "time.secs": "SECS",
     "common.viewAll": "View All",
     "leaderboard.title": "PREDICTION LEADERBOARD",
+    "leaderboard.allTitle": "LEADERBOARD",
+    "leaderboard.hintTop100": "Showing up to top 100 addresses",
+    "leaderboard.empty": "No leaderboard data yet.",
     "rewards.poolTitle": "REWARDS POOL",
     "rewards.totalRewards": "POOL (BNB)",
     "rewards.viewRewards": "VIEW REWARDS",
@@ -313,6 +316,9 @@ const I18N = {
     "time.secs": "秒",
     "common.viewAll": "查看全部",
     "leaderboard.title": "预测排行榜",
+    "leaderboard.allTitle": "预测排行榜",
+    "leaderboard.hintTop100": "最多展示前 100 个地址",
+    "leaderboard.empty": "暂无排行数据。",
     "rewards.poolTitle": "奖励池",
     "rewards.totalRewards": "奖池（BNB）",
     "rewards.viewRewards": "查看奖励",
@@ -1645,88 +1651,94 @@ function trackLeaderboardAddress(addr) {
   localStorage.setItem(leaderboardIndexKey(), JSON.stringify(list));
 }
 
-function renderLeaderboard() {
-  const host = $("#leaderList");
+function crownSvg(kind) {
+  return `
+    <svg class="leaderCrown leaderCrown--${kind}" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 7l5 4 3-6 3 6 5-4-1.25 11H5.25L4 7Z" fill="currentColor"/>
+      <path d="M6 20h12v2H6v-2Z" fill="currentColor"/>
+    </svg>
+  `;
+}
+
+function renderLeaderboardHost(hostId, limit) {
+  const host = $(`#${hostId}`);
   if (!host) return;
+
+  const safeLimit = Math.max(0, Math.floor(Number(limit || 0)));
+  if (!safeLimit) {
+    host.innerHTML = "";
+    return;
+  }
+
+  const toRowClass = (i) => (i === 0 ? "leaderRow is-1" : i === 1 ? "leaderRow is-2" : i === 2 ? "leaderRow is-3" : "leaderRow");
+  const toBadge = (i) => (i === 0 ? crownSvg("gold") : i === 1 ? crownSvg("silver") : i === 2 ? crownSvg("bronze") : "");
+
+  let rows = [];
+
   if (state.backend.enabled && Array.isArray(state.backend.leaderboardRows) && state.backend.leaderboardRows.length) {
-    const rows = state.backend.leaderboardRows
+    rows = state.backend.leaderboardRows
       .map((r) => ({
         addr: normAddress(r.address),
         rate: Math.max(0, Math.min(1, Number(r.winRate || 0))),
-        total: Math.max(0, Math.floor(Number(r.matches || 0))),
         settled: Math.max(0, Math.floor(Number(r.settled || 0))),
-        eligible: Boolean(r.eligible),
       }))
       .filter((r) => r.addr)
-      .slice(0, 10);
-    if (!rows.length) {
-      host.innerHTML = "";
-      return;
-    }
-    host.innerHTML = rows
-      .map((r, i) => {
-        const cls = i === 0 ? "leaderRow is-1" : i === 1 ? "leaderRow is-2" : i === 2 ? "leaderRow is-3" : "leaderRow";
-        const pctText = r.settled > 0 ? `${(r.rate * 100).toFixed(1)}%` : "--";
-        const detail = state.lang === "zh" ? `${r.settled}/${r.total}场` : `${r.settled}/${r.total}`;
-        const badge = r.eligible ? (i < 3 ? "👑" : "✓") : " ";
-        return `
-          <li class="${cls}">
-            <div class="leaderRow__rank">${i + 1}</div>
-            <div class="leaderRow__addr mono">${truncateAddress(r.addr)}</div>
-            <div class="leaderRow__pts">${pctText} ${detail}</div>
-            <div class="leaderRow__badge" aria-hidden="true">${badge}</div>
-          </li>
-        `;
-      })
-      .join("");
-    return;
+      .slice(0, safeLimit);
+  } else {
+    if (state.wallet.address) trackLeaderboardAddress(state.wallet.address);
+    const addrs = getLeaderboardIndex();
+    const stats = (addr) => {
+      const bets = getUserBets(addr);
+      const ids = Object.keys(bets || {});
+      let total = 0;
+      let correct = 0;
+      ids.forEach((id) => {
+        const b = bets[id] || {};
+        const result = b.result || null;
+        const pick = b.pick || null;
+        if (!result || !pick) return;
+        total += 1;
+        if (pick === result) correct += 1;
+      });
+      const rate = total > 0 ? correct / total : 0;
+      const score = total > 0 ? rate * Math.log1p(total) : 0;
+      return { total, correct, rate, score };
+    };
+    rows = addrs
+      .map((a) => ({ addr: a, ...stats(a) }))
+      .filter((r) => r.total >= MIN_LEADERBOARD_MATCHES)
+      .sort((x, y) => y.score - x.score || y.rate - x.rate || y.correct - x.correct || y.total - x.total || x.addr.localeCompare(y.addr))
+      .map((r) => ({ addr: r.addr, rate: r.rate, settled: r.total }))
+      .slice(0, safeLimit);
   }
-  const list = getLeaderboardIndex();
-  if (state.wallet.address) trackLeaderboardAddress(state.wallet.address);
-  const addrs = getLeaderboardIndex();
-  const stats = (addr) => {
-    const bets = getUserBets(addr);
-    const ids = Object.keys(bets || {});
-    let total = 0;
-    let correct = 0;
-    ids.forEach((id) => {
-      const b = bets[id] || {};
-      const result = b.result || null;
-      const pick = b.pick || null;
-      if (!result || !pick) return;
-      total += 1;
-      if (pick === result) correct += 1;
-    });
-    const rate = total > 0 ? correct / total : 0;
-    const score = total > 0 ? rate * Math.log1p(total) : 0;
-    return { total, correct, rate, score };
-  };
-  const rows = addrs
-    .map((a) => ({ addr: a, ...stats(a) }))
-    .filter((r) => r.total >= MIN_LEADERBOARD_MATCHES)
-    .sort((x, y) => y.score - x.score || y.rate - x.rate || y.correct - x.correct || y.total - x.total || x.addr.localeCompare(y.addr))
-    .slice(0, 10);
 
   if (!rows.length) {
-    host.innerHTML = "";
+    host.innerHTML = `<li class="leaderEmpty">${t("leaderboard.empty")}</li>`;
     return;
   }
 
   host.innerHTML = rows
     .map((r, i) => {
-      const cls = i === 0 ? "leaderRow is-1" : i === 1 ? "leaderRow is-2" : i === 2 ? "leaderRow is-3" : "leaderRow";
-      const pctText = `${(r.rate * 100).toFixed(1)}%`;
-      const detail = `${r.total}场`;
+      const cls = toRowClass(i);
+      const pctText = r.settled > 0 ? `${(r.rate * 100).toFixed(1)}%` : "--";
+      const badge = toBadge(i);
       return `
         <li class="${cls}">
           <div class="leaderRow__rank">${i + 1}</div>
-          <div class="leaderRow__addr mono">${truncateAddress(r.addr)}</div>
-          <div class="leaderRow__pts">${pctText} ${detail}</div>
-          <div class="leaderRow__badge" aria-hidden="true">${i < 3 ? "👑" : " "}</div>
+          <div class="leaderRow__main">
+            <div class="leaderRow__addr mono" title="${r.addr}">${truncateAddress(r.addr)}</div>
+            <div class="leaderRow__rate mono">${pctText}</div>
+          </div>
+          <div class="leaderRow__badge" aria-hidden="true">${badge}</div>
         </li>
       `;
     })
     .join("");
+}
+
+function renderLeaderboard() {
+  renderLeaderboardHost("leaderList", 5);
+  renderLeaderboardHost("leaderListFull", 100);
 }
 
 function getPoints(addr) {
