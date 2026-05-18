@@ -1026,6 +1026,16 @@ function renderChartHint() {
   el.textContent = state.lang === "zh" ? `数据收集中，当前展示最近 ${mins} 分钟` : `Collecting data · Showing last ${mins}m`;
 }
 
+function isMarketLiveSnapshot(snap) {
+  const s = snap || {};
+  return (
+    (s.source === "rpc" || s.source === "dexscreener") &&
+    typeof s.priceUsd === "number" &&
+    Number.isFinite(s.priceUsd) &&
+    s.priceUsd > 0
+  );
+}
+
 function updateContractUI() {
   const el = $("#contractAddr");
   if (!el) return;
@@ -2198,9 +2208,39 @@ function drawChart() {
   const h = cssH - pad.t - pad.b;
 
   const snap = state.token.snapshot;
+  const marketLive = isMarketLiveSnapshot(snap);
   let points = state.chart.points;
   const volumes = state.chart.volumes;
-  if (!points.length) return;
+  if (!marketLive) {
+    setText("priceValue", "--");
+    setText("midPriceValue", "--");
+    setText("miniPrice", "--");
+    setText("midVolValue", "--");
+    setText("midLiqValue", "--");
+    setText("miniMcap", "--");
+    setText("miniVol", "--");
+    setText("miniHolders", "--");
+    setText("miniSupply", "--");
+    const miniPriceDelta = $("#miniPriceDelta");
+    if (miniPriceDelta) {
+      miniPriceDelta.textContent = "--";
+      miniPriceDelta.classList.remove("up");
+      miniPriceDelta.classList.remove("down");
+    }
+    const priceDelta = $("#priceDelta");
+    if (priceDelta) {
+      priceDelta.textContent = "--";
+      priceDelta.classList.remove("up");
+      priceDelta.classList.remove("down");
+    }
+    return;
+  }
+  if (!points.length) {
+    const snapPrice0 = snap && typeof snap.priceUsd === "number" && Number.isFinite(snap.priceUsd) ? snap.priceUsd : null;
+    setText("midPriceValue", snapPrice0 ? formatPriceUsd(snapPrice0) : "--");
+    setText("miniPrice", snapPrice0 ? formatPriceUsd(snapPrice0) : "--");
+    return;
+  }
 
   const snapPrice = snap && typeof snap.priceUsd === "number" && Number.isFinite(snap.priceUsd) ? snap.priceUsd : null;
   if (!state.chart.live && snapPrice && points.length) {
@@ -2399,6 +2439,7 @@ function drawChart() {
   setText("miniVol", vol === null ? "--" : formatUSD(vol));
 
   setText("miniHolders", "--");
+  setText("miniSupply", "--");
 }
 
 function drawOverview() {
@@ -2422,8 +2463,18 @@ function drawOverview() {
   const h = cssH - pad.t - pad.b;
 
   const snap = state.token.snapshot;
+  const marketLive = isMarketLiveSnapshot(snap);
   let points = state.overview.points;
-  if (!points.length) return;
+  if (!marketLive || !points.length) {
+    setText("priceValue", "--");
+    const priceDelta = $("#priceDelta");
+    if (priceDelta) {
+      priceDelta.textContent = "--";
+      priceDelta.classList.remove("up");
+      priceDelta.classList.remove("down");
+    }
+    return;
+  }
 
   const snapPrice = snap && typeof snap.priceUsd === "number" && Number.isFinite(snap.priceUsd) ? snap.priceUsd : null;
   if (!state.overview.live && snapPrice && points.length) {
@@ -2490,7 +2541,7 @@ function drawOverview() {
   const delta = first > 0 ? ((last - first) / first) * 100 : 0;
   const d24 = snap && typeof snap.change24h === "number" && Number.isFinite(snap.change24h) ? snap.change24h : delta;
   const isUp = d24 >= 0;
-  const priceText = snapPrice ? formatPriceUsd(snapPrice) : formatPriceUsd(last);
+  const priceText = snapPrice ? formatPriceUsd(snapPrice) : "--";
   setText("priceValue", priceText);
 
   const priceDelta = $("#priceDelta");
@@ -2511,9 +2562,8 @@ function setRange(range) {
     state.chart.effectiveWinMs = series.effectiveWinMs;
     state.chart.coverageMs = series.coverageMs;
   } else {
-    const { points, volumes } = generateSeries(range);
-    state.chart.points = points;
-    state.chart.volumes = volumes;
+    state.chart.points = [];
+    state.chart.volumes = [];
     state.chart.live = false;
     state.chart.effectiveWinMs = null;
     state.chart.coverageMs = null;
@@ -3882,9 +3932,8 @@ function boot() {
     updateContractUI();
     setupCopyContract();
     setupRangeTabs();
-    const overview = generateSeries("24H");
-    state.overview.points = overview.points;
-    state.overview.volumes = overview.volumes;
+    state.overview.points = [];
+    state.overview.volumes = [];
     drawOverview();
     setRange("24H");
     setupResizeRedraw();
