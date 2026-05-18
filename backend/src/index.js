@@ -13,7 +13,7 @@ const RAW_DATABASE_URL = String(process.env.DATABASE_URL || process.env.POSTGRES
 const DATABASE_SSL = String(process.env.DATABASE_SSL || "true").toLowerCase() !== "false";
 
 const BSC_RPC_URL = String(process.env.BSC_RPC_URL || "https://bsc-rpc.publicnode.com");
-const WCT_CONTRACT = String(process.env.WCT_CONTRACT || "0x0000000000000000000000000000000000000000").toLowerCase();
+const WCT_CONTRACT = String(process.env.WCT_CONTRACT || "0xD57302103E268A7B161cA26A1e978f26d2097777").toLowerCase();
 
 const BET_CLOSE_BEFORE_MS = 5 * 60 * 1000;
 const NONCE_TTL_MS = 5 * 60 * 1000;

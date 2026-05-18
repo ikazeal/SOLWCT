@@ -56,7 +56,7 @@ const state = {
   },
 };
 
-const CONTRACT_ADDRESS = "0x091652ebc0a0238d7151a868f22d7cfd2a267777";
+const CONTRACT_ADDRESS = "0xD57302103E268A7B161cA26A1e978f26d2097777";
 const BSC_CHAIN_ID_HEX = "0x38";
 const BSC_RPC_URL = "https://bsc-rpc.publicnode.com";
 const PANCAKE_V2_FACTORY = "0xca143ce32fe78f1f7019d7d551a6402fc5350c73";
