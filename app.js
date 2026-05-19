@@ -264,7 +264,7 @@ const I18N = {
     "nav.rewards": "奖励",
     "nav.roadmap": "路线图",
     "hero.kicker": "",
-    "hero.desc": "首个为世界杯打造的 Meme 代币。<br />预测 · 对战 · 赢取 BNB 奖励。",
+    "hero.desc": "首个为世界杯打造的 世界杯AI预测市场。<br />预测 · 对战 · 赢取 BNB 奖励。",
     "hero.buyNow": "立即购买",
     "hero.joinPrediction": "参与预测",
     "overview.title": "代币概览",
