@@ -2599,6 +2599,64 @@ function teamLogoUrl(teamName) {
     .replace(/[\u200B-\u200D\uFEFF]/g, "")
     .replace(/\s+/g, "")
     .trim();
+  if (!cleaned || cleaned === "待定") return "";
+
+  const overrides = {
+    英格兰: "https://upload.wikimedia.org/wikipedia/en/b/be/Flag_of_England.svg",
+    苏格兰: "https://upload.wikimedia.org/wikipedia/commons/1/10/Flag_of_Scotland.svg",
+  };
+  const direct = overrides[cleaned];
+  if (direct) return direct;
+
+  const codes = {
+    乌兹别克斯坦: "uz",
+    乌拉圭: "uy",
+    伊拉克: "iq",
+    伊朗: "ir",
+    佛得角: "cv",
+    克罗地亚: "hr",
+    刚果民主共和国: "cd",
+    加拿大: "ca",
+    加纳: "gh",
+    南非: "za",
+    卡塔尔: "qa",
+    厄瓜多尔: "ec",
+    哥伦比亚: "co",
+    土耳其: "tr",
+    埃及: "eg",
+    塞内加尔: "sn",
+    墨西哥: "mx",
+    奥地利: "at",
+    巴拉圭: "py",
+    巴拿马: "pa",
+    库拉索: "cw",
+    德国: "de",
+    挪威: "no",
+    捷克: "cz",
+    摩洛哥: "ma",
+    新西兰: "nz",
+    日本: "jp",
+    比利时: "be",
+    沙特阿拉伯: "sa",
+    法国: "fr",
+    波黑: "ba",
+    海地: "ht",
+    澳大利亚: "au",
+    瑞典: "se",
+    瑞士: "ch",
+    科特迪瓦: "ci",
+    突尼斯: "tn",
+    约旦: "jo",
+    美国: "us",
+    葡萄牙: "pt",
+    西班牙: "es",
+    阿尔及利亚: "dz",
+    阿根廷: "ar",
+    韩国: "kr",
+  };
+  const code = codes[cleaned];
+  if (code) return `https://flagcdn.com/w40/${code}.png`;
+
   return `https://www.mengyinnews.cn/images/logo/${encodeURIComponent(cleaned)}.png`;
 }
 
@@ -2884,14 +2942,14 @@ function renderMatchCard(match) {
       <div class="matchCard__teams">
         <div class="team">
           <span class="flag" style="background-image:${homeGrad}" aria-hidden="true">
-            <img class="flag__img" src="${homeLogo}" alt="" referrerpolicy="no-referrer" loading="lazy" decoding="async" onerror="this.style.display='none'"/>
+            <img class="flag__img" src="${homeLogo}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'"/>
           </span>
           <div class="team__code">${match.home}</div>
         </div>
         <div class="vs">VS</div>
         <div class="team">
           <span class="flag" style="background-image:${awayGrad}" aria-hidden="true">
-            <img class="flag__img" src="${awayLogo}" alt="" referrerpolicy="no-referrer" loading="lazy" decoding="async" onerror="this.style.display='none'"/>
+            <img class="flag__img" src="${awayLogo}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'"/>
           </span>
           <div class="team__code">${match.away}</div>
         </div>
@@ -3049,13 +3107,13 @@ function renderPredictionCard(match) {
       <div class="predPick__teams">
         <span class="predTeam">
           <span class="flag flag--sm" style="background-image:${homeGrad}" aria-hidden="true">
-            <img class="flag__img" src="${homeLogo}" alt="" referrerpolicy="no-referrer" loading="lazy" decoding="async" onerror="this.style.display='none'"/>
+            <img class="flag__img" src="${homeLogo}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'"/>
           </span>
           <span class="predTeam__name">${match.home}</span>
         </span>
         <span class="predTeam">
           <span class="flag flag--sm" style="background-image:${awayGrad}" aria-hidden="true">
-            <img class="flag__img" src="${awayLogo}" alt="" referrerpolicy="no-referrer" loading="lazy" decoding="async" onerror="this.style.display='none'"/>
+            <img class="flag__img" src="${awayLogo}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'"/>
           </span>
           <span class="predTeam__name">${match.away}</span>
         </span>
@@ -3245,14 +3303,14 @@ function renderAllMatches() {
               <div class="allMatchRow__teams">
                 <span class="allMatchRow__team">
                   <span class="flag flag--sm" style="background-image:${flagGradient(m.home)}" aria-hidden="true">
-                    <img class="flag__img" src="${teamLogoUrl(m.home)}" alt="" referrerpolicy="no-referrer" loading="lazy" decoding="async" onerror="this.style.display='none'"/>
+                    <img class="flag__img" src="${teamLogoUrl(m.home)}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'"/>
                   </span>
                   <span class="allMatchRow__teamName">${m.home}</span>
                 </span>
                 <span class="allMatchRow__vs">VS</span>
                 <span class="allMatchRow__team">
                   <span class="flag flag--sm" style="background-image:${flagGradient(m.away)}" aria-hidden="true">
-                    <img class="flag__img" src="${teamLogoUrl(m.away)}" alt="" referrerpolicy="no-referrer" loading="lazy" decoding="async" onerror="this.style.display='none'"/>
+                    <img class="flag__img" src="${teamLogoUrl(m.away)}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'"/>
                   </span>
                   <span class="allMatchRow__teamName">${m.away}</span>
                 </span>
