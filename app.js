@@ -760,15 +760,16 @@ async function fetchOnchainTokenSnapshot(contract) {
   const addr = String(contract || "").trim();
   if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) return null;
 
-  const [pairWbnb, pairBnbUsdt] = await Promise.all([rpcGetPair(addr, WBNB_ADDRESS), rpcGetPair(WBNB_ADDRESS, USDT_ADDRESS)]);
+  const [pairWbnb, pairUsdt, pairBnbUsdt] = await Promise.all([
+    rpcGetPair(addr, WBNB_ADDRESS),
+    rpcGetPair(addr, USDT_ADDRESS),
+    rpcGetPair(WBNB_ADDRESS, USDT_ADDRESS),
+  ]);
   const zero = "0x0000000000000000000000000000000000000000";
-  if (pairWbnb === zero) return null;
+  if (pairWbnb === zero && pairUsdt === zero) return null;
 
   const [metaName, metaSymbol, tokenDec, supplyRaw] = await Promise.all([rpcTokenName(addr), rpcTokenSymbol(addr), rpcTokenDecimals(addr), rpcTokenTotalSupply(addr)]);
   const supply = ratioBigIntToNumber(supplyRaw, pow10n(tokenDec), 6);
-
-  const priceBnbInfo = await rpcV2PriceBaseInQuote(pairWbnb, addr, WBNB_ADDRESS);
-  const priceNative = priceBnbInfo.price;
 
   let bnbUsd = null;
   if (pairBnbUsdt !== zero) {
@@ -776,16 +777,38 @@ async function fetchOnchainTokenSnapshot(contract) {
     bnbUsd = bnbUsdInfo.price;
   }
 
-  const priceUsd = typeof priceNative === "number" && Number.isFinite(priceNative) && typeof bnbUsd === "number" && Number.isFinite(bnbUsd) ? priceNative * bnbUsd : null;
-  const marketCap = typeof priceUsd === "number" && Number.isFinite(priceUsd) && typeof supply === "number" && Number.isFinite(supply) ? priceUsd * supply : null;
+  let pair = pairWbnb;
+  let quote = WBNB_ADDRESS;
+  if (pair === zero) {
+    pair = pairUsdt;
+    quote = USDT_ADDRESS;
+  }
 
-  const reserveWbnb = ratioBigIntToNumber(priceBnbInfo.reserveQuote, pow10n(18), 6);
-  const liquidityUsd = typeof reserveWbnb === "number" && Number.isFinite(reserveWbnb) && typeof bnbUsd === "number" && Number.isFinite(bnbUsd) ? reserveWbnb * bnbUsd * 2 : null;
+  const priceInfo = await rpcV2PriceBaseInQuote(pair, addr, quote);
+  const priceInQuote = priceInfo.price;
+
+  let priceUsd = null;
+  let priceNative = null;
+  let liquidityUsd = null;
+
+  if (quote === WBNB_ADDRESS) {
+    priceNative = priceInQuote;
+    if (typeof priceNative === "number" && Number.isFinite(priceNative) && typeof bnbUsd === "number" && Number.isFinite(bnbUsd)) priceUsd = priceNative * bnbUsd;
+    const reserveWbnb = ratioBigIntToNumber(priceInfo.reserveQuote, pow10n(18), 6);
+    if (typeof reserveWbnb === "number" && Number.isFinite(reserveWbnb) && typeof bnbUsd === "number" && Number.isFinite(bnbUsd)) liquidityUsd = reserveWbnb * bnbUsd * 2;
+  } else {
+    priceUsd = priceInQuote;
+    if (typeof priceUsd === "number" && Number.isFinite(priceUsd) && typeof bnbUsd === "number" && Number.isFinite(bnbUsd) && bnbUsd > 0) priceNative = priceUsd / bnbUsd;
+    const reserveUsdt = ratioBigIntToNumber(priceInfo.reserveQuote, pow10n(18), 6);
+    if (typeof reserveUsdt === "number" && Number.isFinite(reserveUsdt)) liquidityUsd = reserveUsdt * 2;
+  }
+
+  const marketCap = typeof priceUsd === "number" && Number.isFinite(priceUsd) && typeof supply === "number" && Number.isFinite(supply) ? priceUsd * supply : null;
 
   return {
     source: "rpc",
     url: "",
-    pairAddress: pairWbnb,
+    pairAddress: pair,
     name: metaName || "",
     symbol: metaSymbol || "",
     priceUsd: typeof priceUsd === "number" && Number.isFinite(priceUsd) ? priceUsd : null,
@@ -907,7 +930,7 @@ function buildSeriesFromHistory(range) {
     .filter((p) => Number.isFinite(p.ts) && Number.isFinite(p.priceUsd) && p.priceUsd > 0)
     .sort((a, b) => a.ts - b.ts);
 
-  if (hist.length < 2) return null;
+  if (hist.length < 1) return null;
 
   const now = Date.now();
   const count = rangePointCount(range);
@@ -916,6 +939,12 @@ function buildSeriesFromHistory(range) {
   const effectiveWinMs = coverageMs > 0 && coverageMs < win * 0.3 ? Math.max(10 * 60 * 1000, Math.min(win, Math.floor(coverageMs * 1.1))) : win;
   const start = now - effectiveWinMs;
   const stepMs = count > 1 ? Math.floor(effectiveWinMs / (count - 1)) : effectiveWinMs;
+
+  if (hist.length === 1) {
+    const points = new Array(count).fill(hist[0].priceUsd);
+    const volumes = new Array(count).fill(0.05);
+    return { points, volumes, effectiveWinMs, coverageMs };
+  }
 
   const windowed = hist.filter((p) => p.ts >= start);
   if (windowed.length >= 2 && windowed.length < Math.max(6, Math.floor(count * 0.15))) {
