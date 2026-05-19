@@ -793,6 +793,7 @@ async function fetchOnchainTokenSnapshot(contract) {
     liquidityUsd: typeof liquidityUsd === "number" && Number.isFinite(liquidityUsd) ? liquidityUsd : null,
     volume24hUsd: null,
     marketCap: typeof marketCap === "number" && Number.isFinite(marketCap) ? marketCap : null,
+    totalSupply: typeof supply === "number" && Number.isFinite(supply) ? supply : null,
     change1h: null,
     change6h: null,
     change24h: null,
@@ -2252,6 +2253,18 @@ function drawChart() {
     const snapPrice0 = snap && typeof snap.priceUsd === "number" && Number.isFinite(snap.priceUsd) ? snap.priceUsd : null;
     setText("midPriceValue", snapPrice0 ? formatPriceUsd(snapPrice0) : "--");
     setText("miniPrice", snapPrice0 ? formatPriceUsd(snapPrice0) : "--");
+
+    const vol0 = snap && typeof snap.volume24hUsd === "number" && Number.isFinite(snap.volume24hUsd) ? snap.volume24hUsd : null;
+    const liq0 = snap && typeof snap.liquidityUsd === "number" && Number.isFinite(snap.liquidityUsd) ? snap.liquidityUsd : null;
+    const mcap0 = snap && typeof snap.marketCap === "number" && Number.isFinite(snap.marketCap) && snap.marketCap > 0 ? snap.marketCap : null;
+    const supply0 = snap && typeof snap.totalSupply === "number" && Number.isFinite(snap.totalSupply) && snap.totalSupply > 0 ? snap.totalSupply : null;
+
+    setText("midVolValue", vol0 === null ? "--" : formatUSD(vol0));
+    setText("midLiqValue", liq0 === null ? "--" : formatUSD(liq0));
+    setText("miniMcap", mcap0 === null ? "--" : formatUSD(mcap0));
+    setText("miniVol", vol0 === null ? "--" : formatUSD(vol0));
+    setText("miniHolders", "--");
+    setText("miniSupply", supply0 === null ? "--" : formatNumber(supply0));
     return;
   }
 
@@ -2445,7 +2458,8 @@ function drawChart() {
   setText("miniVol", vol === null ? "--" : formatUSD(vol));
 
   setText("miniHolders", "--");
-  setText("miniSupply", "--");
+  const supply = marketLive && snap && typeof snap.totalSupply === "number" && Number.isFinite(snap.totalSupply) && snap.totalSupply > 0 ? snap.totalSupply : null;
+  setText("miniSupply", supply === null ? "--" : formatNumber(supply));
 }
 
 function drawOverview() {
@@ -2471,13 +2485,32 @@ function drawOverview() {
   const snap = state.token.snapshot;
   const marketLive = isMarketLiveSnapshot(snap);
   let points = state.overview.points;
-  if (!marketLive || !points.length) {
+  if (!marketLive) {
     setText("priceValue", "--");
     const priceDelta = $("#priceDelta");
     if (priceDelta) {
       priceDelta.textContent = "--";
       priceDelta.classList.remove("up");
       priceDelta.classList.remove("down");
+    }
+    return;
+  }
+  if (!points.length) {
+    const snapPrice0 = snap && typeof snap.priceUsd === "number" && Number.isFinite(snap.priceUsd) ? snap.priceUsd : null;
+    setText("priceValue", snapPrice0 ? formatPriceUsd(snapPrice0) : "--");
+    const priceDelta = $("#priceDelta");
+    if (priceDelta) {
+      const d0 = snap && typeof snap.change24h === "number" && Number.isFinite(snap.change24h) ? snap.change24h : null;
+      if (typeof d0 === "number") {
+        const up0 = d0 >= 0;
+        priceDelta.textContent = t("chart.deltaFormat", { sign: up0 ? "+" : "", pct: Number(d0).toFixed(2), range: "24H" });
+        priceDelta.classList.toggle("up", up0);
+        priceDelta.classList.toggle("down", !up0);
+      } else {
+        priceDelta.textContent = "--";
+        priceDelta.classList.remove("up");
+        priceDelta.classList.remove("down");
+      }
     }
     return;
   }
