@@ -161,6 +161,200 @@ const erc20 = new ethers.Interface([
   "function balanceOf(address) view returns (uint256)",
 ]);
 
+const PANCAKE_V2_FACTORY = "0xca143ce32fe78f1f7019d7d551a6402fc5350c73";
+const WBNB_ADDRESS = "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c";
+const USDT_ADDRESS = "0x55d398326f99059ff775485246999027b3197955";
+
+const v2Factory = new ethers.Interface(["function getPair(address,address) view returns (address)"]);
+const v2Pair = new ethers.Interface([
+  "function token0() view returns (address)",
+  "function token1() view returns (address)",
+  "function getReserves() view returns (uint112,uint112,uint32)",
+]);
+
+function parseCompactUsd(text) {
+  const raw = String(text || "").trim();
+  const m = raw.match(/^\$?\s*([0-9]+(?:\.[0-9]+)?)\s*([KMB])?\s*$/i);
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n)) return null;
+  const suf = String(m[2] || "").toUpperCase();
+  const mul = suf === "B" ? 1e9 : suf === "M" ? 1e6 : suf === "K" ? 1e3 : 1;
+  return n * mul;
+}
+
+function ratioBigIntToNumber(num, den, precision = 18) {
+  const n = typeof num === "bigint" ? num : 0n;
+  const d = typeof den === "bigint" ? den : 0n;
+  if (d === 0n) return null;
+  const p = Math.max(0, Math.min(24, Math.floor(Number(precision || 18))));
+  const scaled = (n * pow10BigInt(p)) / d;
+  const asNum = Number(scaled) / Math.pow(10, p);
+  return Number.isFinite(asNum) ? asNum : null;
+}
+
+function norm0x(addr) {
+  const a = normAddress(addr);
+  return isAddress(a) ? a : "";
+}
+
+async function callHex(to, data) {
+  const out = await provider.call({ to, data });
+  return String(out || "0x");
+}
+
+async function tokenDecimals(token) {
+  const decHex = await callHex(token, erc20.encodeFunctionData("decimals", []));
+  return Number(erc20.decodeFunctionResult("decimals", decHex)[0] ?? 18);
+}
+
+async function tokenTotalSupply(token) {
+  const out = await callHex(token, "0x18160ddd");
+  return BigInt(out || "0x0");
+}
+
+async function v2GetPair(a, b) {
+  const out = await callHex(PANCAKE_V2_FACTORY, v2Factory.encodeFunctionData("getPair", [a, b]));
+  const addr = ethers.getAddress(`0x${out.replace(/^0x/i, "").slice(-40)}`);
+  return normAddress(addr);
+}
+
+async function v2PairMeta(pair) {
+  const [t0Hex, t1Hex, resHex] = await Promise.all([
+    callHex(pair, v2Pair.encodeFunctionData("token0", [])),
+    callHex(pair, v2Pair.encodeFunctionData("token1", [])),
+    callHex(pair, v2Pair.encodeFunctionData("getReserves", [])),
+  ]);
+  const t0 = normAddress(ethers.getAddress(`0x${t0Hex.replace(/^0x/i, "").slice(-40)}`));
+  const t1 = normAddress(ethers.getAddress(`0x${t1Hex.replace(/^0x/i, "").slice(-40)}`));
+  const decoded = v2Pair.decodeFunctionResult("getReserves", resHex);
+  const r0 = BigInt(decoded[0] ?? 0n);
+  const r1 = BigInt(decoded[1] ?? 0n);
+  return { token0: t0, token1: t1, r0, r1 };
+}
+
+async function fetchFlapMarketCapUsd(contract) {
+  const addr = String(contract || "").trim();
+  if (!isAddress(addr)) return null;
+  const url = `https://flap.sh/bnb/${addr}`;
+  const res = await fetch(url, { cache: "no-store" }).catch(() => null);
+  if (!res || !res.ok) return null;
+  const text = await res.text();
+  const m = text.match(/Market\s*Cap[\s\S]*?\$([0-9.,]+)\s*([KMB])?/i);
+  if (!m) return null;
+  const v = `${String(m[1] || "").replace(/,/g, "")}${m[2] || ""}`;
+  return parseCompactUsd(v);
+}
+
+async function fetchBscScanHolders(contract) {
+  const addr = String(contract || "").trim();
+  if (!isAddress(addr)) return null;
+  const url = `https://bscscan.com/token/${addr}`;
+  const res = await fetch(url, { cache: "no-store", headers: { "user-agent": "Mozilla/5.0" } }).catch(() => null);
+  if (!res || !res.ok) return null;
+  const html = await res.text();
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, "\n")
+    .replace(/<style[\s\S]*?<\/style>/gi, "\n")
+    .replace(/<[^>]+>/g, "\n")
+    .replace(/\u00a0/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{2,}/g, "\n");
+  const m = text.match(/Holders\s*\n\s*([0-9,]+)/i);
+  if (!m) return null;
+  const n = Number(String(m[1] || "").replace(/,/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+
+async function fetchBackendTokenSnapshot(contract) {
+  const addr = norm0x(contract) || norm0x(WCT_CONTRACT);
+  if (!addr) return null;
+
+  const [dec, supplyRaw] = await Promise.all([tokenDecimals(addr), tokenTotalSupply(addr)]);
+  const totalSupply = ratioBigIntToNumber(supplyRaw, pow10BigInt(dec), 6);
+
+  const zero = "0x0000000000000000000000000000000000000000";
+  const [pairWbnb, pairUsdt, pairBnbUsdt] = await Promise.all([v2GetPair(addr, WBNB_ADDRESS), v2GetPair(addr, USDT_ADDRESS), v2GetPair(WBNB_ADDRESS, USDT_ADDRESS)]);
+
+  let bnbUsd = null;
+  if (pairBnbUsdt && pairBnbUsdt !== normAddress(zero)) {
+    const meta = await v2PairMeta(pairBnbUsdt);
+    const dWbnb = 18;
+    const dUsdt = 18;
+    const num = meta.token0 === normAddress(WBNB_ADDRESS) ? meta.r1 * pow10BigInt(dWbnb) : meta.r0 * pow10BigInt(dWbnb);
+    const den = meta.token0 === normAddress(WBNB_ADDRESS) ? meta.r0 * pow10BigInt(dUsdt) : meta.r1 * pow10BigInt(dUsdt);
+    bnbUsd = ratioBigIntToNumber(num, den, 18);
+  }
+
+  let priceUsd = null;
+  let priceNative = null;
+  let liquidityUsd = null;
+  let pairAddress = "";
+
+  const hasWbnbPair = pairWbnb && pairWbnb !== normAddress(zero);
+  const hasUsdtPair = pairUsdt && pairUsdt !== normAddress(zero);
+
+  if (hasWbnbPair) {
+    pairAddress = pairWbnb;
+    const meta = await v2PairMeta(pairWbnb);
+    const tokenDec = dec;
+    const quoteDec = 18;
+    const tokenIs0 = meta.token0 === normAddress(addr);
+    const rToken = tokenIs0 ? meta.r0 : meta.r1;
+    const rQuote = tokenIs0 ? meta.r1 : meta.r0;
+    const num = rQuote * pow10BigInt(tokenDec);
+    const den = rToken * pow10BigInt(quoteDec);
+    priceNative = ratioBigIntToNumber(num, den, 18);
+    if (typeof priceNative === "number" && Number.isFinite(priceNative) && typeof bnbUsd === "number" && Number.isFinite(bnbUsd)) priceUsd = priceNative * bnbUsd;
+    const reserveWbnb = ratioBigIntToNumber(rQuote, pow10BigInt(18), 6);
+    if (typeof reserveWbnb === "number" && Number.isFinite(reserveWbnb) && typeof bnbUsd === "number" && Number.isFinite(bnbUsd)) liquidityUsd = reserveWbnb * bnbUsd * 2;
+  } else if (hasUsdtPair) {
+    pairAddress = pairUsdt;
+    const meta = await v2PairMeta(pairUsdt);
+    const tokenDec = dec;
+    const quoteDec = 18;
+    const tokenIs0 = meta.token0 === normAddress(addr);
+    const rToken = tokenIs0 ? meta.r0 : meta.r1;
+    const rQuote = tokenIs0 ? meta.r1 : meta.r0;
+    const num = rQuote * pow10BigInt(tokenDec);
+    const den = rToken * pow10BigInt(quoteDec);
+    priceUsd = ratioBigIntToNumber(num, den, 18);
+    if (typeof priceUsd === "number" && Number.isFinite(priceUsd) && typeof bnbUsd === "number" && Number.isFinite(bnbUsd) && bnbUsd > 0) priceNative = priceUsd / bnbUsd;
+    const reserveUsdt = ratioBigIntToNumber(rQuote, pow10BigInt(18), 6);
+    if (typeof reserveUsdt === "number" && Number.isFinite(reserveUsdt)) liquidityUsd = reserveUsdt * 2;
+  }
+
+  let marketCap = null;
+  if (typeof priceUsd === "number" && Number.isFinite(priceUsd) && typeof totalSupply === "number" && Number.isFinite(totalSupply)) marketCap = priceUsd * totalSupply;
+
+  if (!(typeof marketCap === "number" && Number.isFinite(marketCap) && marketCap > 0)) {
+    const flapMc = await fetchFlapMarketCapUsd(addr);
+    if (typeof flapMc === "number" && Number.isFinite(flapMc) && flapMc > 0) {
+      marketCap = flapMc;
+      if (!(typeof priceUsd === "number" && Number.isFinite(priceUsd) && priceUsd > 0) && typeof totalSupply === "number" && Number.isFinite(totalSupply) && totalSupply > 0) {
+        priceUsd = flapMc / totalSupply;
+        if (typeof bnbUsd === "number" && Number.isFinite(bnbUsd) && bnbUsd > 0) priceNative = priceUsd / bnbUsd;
+      }
+    }
+  }
+
+  const holders = await fetchBscScanHolders(addr);
+
+  return {
+    source: "backend",
+    contract: addr,
+    pairAddress,
+    priceUsd: typeof priceUsd === "number" && Number.isFinite(priceUsd) ? priceUsd : null,
+    priceNative: typeof priceNative === "number" && Number.isFinite(priceNative) ? priceNative : null,
+    liquidityUsd: typeof liquidityUsd === "number" && Number.isFinite(liquidityUsd) ? liquidityUsd : null,
+    volume24hUsd: null,
+    marketCap: typeof marketCap === "number" && Number.isFinite(marketCap) ? marketCap : null,
+    totalSupply: typeof totalSupply === "number" && Number.isFinite(totalSupply) ? totalSupply : null,
+    holders: typeof holders === "number" && Number.isFinite(holders) ? holders : null,
+    ts: nowMs(),
+  };
+}
+
 async function fetchWctBonusComputed(address) {
   if (!isAddress(address) || !isAddress(WCT_CONTRACT) || WCT_CONTRACT === "0x0000000000000000000000000000000000000000") return 0n;
   try {
@@ -353,6 +547,12 @@ app.use(cors(buildCorsOptions()));
 app.use(express.json({ limit: "128kb" }));
 
 app.get("/health", (req, res) => jsonOk(res, { ok: true }));
+
+app.get("/v1/token", wrap(async (req, res) => {
+  const contract = String(req.query.contract || "").trim();
+  const snap = await fetchBackendTokenSnapshot(contract);
+  jsonOk(res, { snapshot: snap });
+}));
 
 app.get("/v1/stream", (req, res) => {
   res.status(200);

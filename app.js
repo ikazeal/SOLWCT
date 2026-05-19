@@ -545,7 +545,17 @@ function parseFlapTokenSnapshotFromText(text) {
   const mcText = mcMatch ? `$${mcMatch[1].replace(/,/g, "")}${mcMatch[2] || ""}` : "";
 
   if (!mcText) return null;
-  return { name, symbol, mcText };
+  const raw = `${mcMatch ? `${mcMatch[1].replace(/,/g, "")}${mcMatch[2] || ""}` : ""}`.trim();
+  const m2 = raw.match(/^([0-9]+(?:\.[0-9]+)?)\s*([KMB])?$/i);
+  let marketCap = null;
+  if (m2) {
+    const n = Number(m2[1]);
+    const suf = String(m2[2] || "").toUpperCase();
+    const mul = suf === "B" ? 1e9 : suf === "M" ? 1e6 : suf === "K" ? 1e3 : 1;
+    const v = n * mul;
+    if (Number.isFinite(v) && v > 0) marketCap = v;
+  }
+  return { name, symbol, mcText, marketCap };
 }
 
 async function fetchFlapTokenSnapshot(contract) {
@@ -594,6 +604,31 @@ async function fetchDexScreenerTokenSnapshot(contract) {
     change1h: Number.isFinite(change1h) ? change1h : null,
     change6h: Number.isFinite(change6h) ? change6h : null,
     change24h: Number.isFinite(change24h) ? change24h : null,
+  };
+}
+
+async function fetchBackendTokenSnapshot(contract) {
+  const base = getBackendBaseUrl();
+  if (!base) return null;
+  const addr = String(contract || "").trim();
+  if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) return null;
+  const url = `${base}/v1/token?contract=${encodeURIComponent(addr)}`;
+  const json = await fetchJsonWithCorsFallback(url);
+  const snap = json && typeof json === "object" ? json.snapshot : null;
+  if (!snap || typeof snap !== "object") return null;
+  return {
+    source: "backend",
+    url: "",
+    pairAddress: String(snap.pairAddress || ""),
+    name: String(snap.name || ""),
+    symbol: String(snap.symbol || ""),
+    priceUsd: typeof snap.priceUsd === "number" && Number.isFinite(snap.priceUsd) ? snap.priceUsd : null,
+    priceNative: typeof snap.priceNative === "number" && Number.isFinite(snap.priceNative) ? snap.priceNative : null,
+    liquidityUsd: typeof snap.liquidityUsd === "number" && Number.isFinite(snap.liquidityUsd) ? snap.liquidityUsd : null,
+    volume24hUsd: typeof snap.volume24hUsd === "number" && Number.isFinite(snap.volume24hUsd) ? snap.volume24hUsd : null,
+    marketCap: typeof snap.marketCap === "number" && Number.isFinite(snap.marketCap) ? snap.marketCap : null,
+    totalSupply: typeof snap.totalSupply === "number" && Number.isFinite(snap.totalSupply) ? snap.totalSupply : null,
+    holders: typeof snap.holders === "number" && Number.isFinite(snap.holders) ? snap.holders : null,
   };
 }
 
@@ -838,6 +873,7 @@ async function refreshTokenSnapshot() {
   state.token.lastFetchMs = now;
   let rpcSnap = null;
   let dex = null;
+  let backendSnap = null;
   try {
     rpcSnap = await fetchOnchainTokenSnapshot(CONTRACT_ADDRESS);
   } catch {
@@ -848,9 +884,22 @@ async function refreshTokenSnapshot() {
   } catch {
     dex = null;
   }
+  try {
+    backendSnap = await fetchBackendTokenSnapshot(CONTRACT_ADDRESS);
+  } catch {
+    backendSnap = null;
+  }
 
   if (rpcSnap) {
     const merged = { ...rpcSnap };
+    if (dex) {
+      if (!merged.url) merged.url = String(dex.url || "");
+      if (!merged.pairAddress) merged.pairAddress = String(dex.pairAddress || "");
+      if (!(typeof merged.volume24hUsd === "number" && Number.isFinite(merged.volume24hUsd))) merged.volume24hUsd = dex.volume24hUsd;
+    }
+    state.token.snapshot = { ...merged, ts: now };
+  } else if (backendSnap) {
+    const merged = { ...backendSnap };
     if (dex) {
       if (!merged.url) merged.url = String(dex.url || "");
       if (!merged.pairAddress) merged.pairAddress = String(dex.pairAddress || "");
@@ -1065,7 +1114,7 @@ function renderChartHint() {
 function isMarketLiveSnapshot(snap) {
   const s = snap || {};
   return (
-    (s.source === "rpc" || s.source === "dexscreener") &&
+    (s.source === "rpc" || s.source === "dexscreener" || s.source === "backend") &&
     typeof s.priceUsd === "number" &&
     Number.isFinite(s.priceUsd) &&
     s.priceUsd > 0
@@ -2287,12 +2336,13 @@ function drawChart() {
     const liq0 = snap && typeof snap.liquidityUsd === "number" && Number.isFinite(snap.liquidityUsd) ? snap.liquidityUsd : null;
     const mcap0 = snap && typeof snap.marketCap === "number" && Number.isFinite(snap.marketCap) && snap.marketCap > 0 ? snap.marketCap : null;
     const supply0 = snap && typeof snap.totalSupply === "number" && Number.isFinite(snap.totalSupply) && snap.totalSupply > 0 ? snap.totalSupply : null;
+    const holders0 = snap && typeof snap.holders === "number" && Number.isFinite(snap.holders) && snap.holders > 0 ? snap.holders : null;
 
     setText("midVolValue", vol0 === null ? "--" : formatUSD(vol0));
     setText("midLiqValue", liq0 === null ? "--" : formatUSD(liq0));
     setText("miniMcap", mcap0 === null ? "--" : formatUSD(mcap0));
     setText("miniVol", vol0 === null ? "--" : formatUSD(vol0));
-    setText("miniHolders", "--");
+    setText("miniHolders", holders0 === null ? "--" : formatNumber(holders0));
     setText("miniSupply", supply0 === null ? "--" : formatNumber(supply0));
     return;
   }
@@ -2486,7 +2536,8 @@ function drawChart() {
   setText("miniMcap", mcap === null ? "--" : formatUSD(mcap));
   setText("miniVol", vol === null ? "--" : formatUSD(vol));
 
-  setText("miniHolders", "--");
+  const holders = marketLive && snap && typeof snap.holders === "number" && Number.isFinite(snap.holders) && snap.holders > 0 ? snap.holders : null;
+  setText("miniHolders", holders === null ? "--" : formatNumber(holders));
   const supply = marketLive && snap && typeof snap.totalSupply === "number" && Number.isFinite(snap.totalSupply) && snap.totalSupply > 0 ? snap.totalSupply : null;
   setText("miniSupply", supply === null ? "--" : formatNumber(supply));
 }
