@@ -114,7 +114,7 @@ function utf8ToHex(str) {
 
 const I18N = {
   en: {
-    "doc.title": "WorldCup Token",
+    "doc.title": "World Cup AI Prediction Market",
     "nav.home": "HOME",
     "nav.tokenomics": "TOKENOMICS",
     "nav.matches": "MATCHES",
@@ -253,7 +253,7 @@ const I18N = {
     "lang.btn.zh": "中文",
   },
   zh: {
-    "doc.title": "世界杯代币",
+    "doc.title": "世界杯AI预测市场",
     "nav.home": "首页",
     "nav.tokenomics": "代币经济",
     "nav.matches": "赛程",
