@@ -1199,11 +1199,14 @@ function getBackendBaseUrl() {
   const meta = document.querySelector('meta[name="wct-backend"]');
   const fromMeta = meta && typeof meta.content === "string" ? meta.content.trim() : "";
   const fromLs = (localStorage.getItem(BACKEND_STORAGE_KEY) || "").trim();
-  if (!fromLs) {
-    const host = typeof window !== "undefined" ? String(window.location?.hostname || "") : "";
-    if (host === "localhost" || host === "127.0.0.1") return "http://localhost:8787";
+  if (fromLs) {
+    const raw = fromLs;
+    if (!/^https?:\/\//i.test(raw)) return "";
+    return raw.replace(/\/+$/g, "");
   }
-  const raw = fromLs || fromMeta;
+  const host = typeof window !== "undefined" ? String(window.location?.hostname || "") : "";
+  if (host === "localhost" || host === "127.0.0.1") return "http://localhost:8787";
+  const raw = fromMeta;
   if (!raw) return "";
   if (!/^https?:\/\//i.test(raw)) return "";
   return raw.replace(/\/+$/g, "");
