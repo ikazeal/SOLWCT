@@ -1,7 +1,10 @@
 import express from "express";
 import cors from "cors";
 import { ethers } from "ethers";
+import { Connection, PublicKey } from "@solana/web3.js";
 import pg from "pg";
+import bs58 from "bs58";
+import nacl from "tweetnacl";
 
 const { Pool } = pg;
 
@@ -14,6 +17,8 @@ const DATABASE_SSL = String(process.env.DATABASE_SSL || "true").toLowerCase() !=
 
 const BSC_RPC_URL = String(process.env.BSC_RPC_URL || "https://bsc-rpc.publicnode.com");
 const WCT_CONTRACT = String(process.env.WCT_CONTRACT || "0xD57302103E268A7B161cA26A1e978f26d2097777").toLowerCase();
+const SOL_RPC_URL = String(process.env.SOL_RPC_URL || "https://api.mainnet-beta.solana.com");
+const SOL_WCT_MINT = String(process.env.SOL_WCT_MINT || "").trim();
 
 const BET_CLOSE_BEFORE_MS = 5 * 60 * 1000;
 const NONCE_TTL_MS = 5 * 60 * 1000;
@@ -31,11 +36,23 @@ function nowMs() {
 }
 
 function normAddress(addr) {
-  return String(addr || "").toLowerCase();
+  const raw = String(addr || "").trim();
+  return isAddress(raw) ? raw.toLowerCase() : raw;
 }
 
 function isAddress(addr) {
   return /^0x[0-9a-fA-F]{40}$/.test(String(addr || ""));
+}
+
+function isSolAddress(addr) {
+  const raw = String(addr || "").trim();
+  if (!raw) return false;
+  try {
+    const pk = new PublicKey(raw);
+    return Boolean(pk && pk.toBase58() === raw);
+  } catch {
+    return false;
+  }
 }
 
 function safeInt(n, fallback = 0) {
@@ -79,17 +96,36 @@ function kickoffMsFromMatchId(matchId) {
   return Number.isFinite(ms) ? ms : NaN;
 }
 
-function verifyLoginMessage({ address, signature, message }) {
+function decodeSignatureBytes(signature) {
+  const raw = String(signature || "").trim();
+  if (!raw) return null;
+  const s = raw.startsWith("base64:") ? raw.slice("base64:".length) : raw;
+  const looksBase64 = /[+/=]/.test(s) || /^[A-Za-z0-9+/]+={0,2}$/.test(s);
+  if (looksBase64) {
+    try {
+      const b = Buffer.from(s, "base64");
+      return b && b.length ? new Uint8Array(b) : null;
+    } catch {
+    }
+  }
+  try {
+    const b = bs58.decode(s);
+    return b && b.length ? new Uint8Array(b) : null;
+  } catch {
+  }
+  try {
+    const b = Buffer.from(s, "base64");
+    return b && b.length ? new Uint8Array(b) : null;
+  } catch {
+    return null;
+  }
+}
+
+function verifyEvmLoginMessage({ address, signature, message }) {
   const target = normAddress(address);
   const sig = String(signature || "");
   const msg = String(message || "");
-  const variants = Array.from(
-    new Set([
-      msg,
-      msg.replace(/\r\n/g, "\n"),
-      msg.replace(/\n/g, "\r\n"),
-    ]),
-  ).filter(Boolean);
+  const variants = Array.from(new Set([msg, msg.replace(/\r\n/g, "\n"), msg.replace(/\n/g, "\r\n")])).filter(Boolean);
 
   let badSig = true;
   for (const m of variants) {
@@ -105,6 +141,32 @@ function verifyLoginMessage({ address, signature, message }) {
     }
   }
   return { ok: false, reason: badSig ? "bad_signature" : "signature_mismatch" };
+}
+
+function verifySolLoginMessage({ address, signature, message }) {
+  const target = String(address || "").trim();
+  if (!isSolAddress(target)) return { ok: false, reason: "invalid_address" };
+  const sigBytes = decodeSignatureBytes(signature);
+  if (!sigBytes) return { ok: false, reason: "bad_signature" };
+  const msg = String(message || "");
+  const variants = Array.from(new Set([msg, msg.replace(/\r\n/g, "\n"), msg.replace(/\n/g, "\r\n")])).filter(Boolean);
+  const pkBytes = new PublicKey(target).toBytes();
+  for (const m of variants) {
+    const msgBytes = new TextEncoder().encode(m);
+    try {
+      if (nacl.sign.detached.verify(msgBytes, sigBytes, pkBytes)) return { ok: true };
+    } catch {
+      continue;
+    }
+  }
+  return { ok: false, reason: "signature_mismatch" };
+}
+
+function verifyLoginMessage({ address, signature, message }) {
+  const raw = String(address || "").trim();
+  if (isAddress(raw)) return verifyEvmLoginMessage({ address: raw, signature, message });
+  if (isSolAddress(raw)) return verifySolLoginMessage({ address: raw, signature, message });
+  return { ok: false, reason: "invalid_address" };
 }
 
 function pow10BigInt(d) {
@@ -133,29 +195,29 @@ function normalizeDatabaseUrl(url) {
 
 const DATABASE_URL = normalizeDatabaseUrl(RAW_DATABASE_URL);
 
-function ensureDbUrl() {
-  if (!DATABASE_URL) throw new Error("Missing DATABASE_URL");
-}
-
-ensureDbUrl();
-
-const db = new Pool({
-  connectionString: DATABASE_URL,
-  ssl: DATABASE_SSL ? { rejectUnauthorized: false } : undefined,
-  max: 5,
-  idleTimeoutMillis: 30_000,
-});
+const db =
+  DATABASE_URL
+    ? new Pool({
+        connectionString: DATABASE_URL,
+        ssl: DATABASE_SSL ? { rejectUnauthorized: false } : undefined,
+        max: 5,
+        idleTimeoutMillis: 30_000,
+      })
+    : null;
 
 async function dbQuery(text, params) {
+  if (!db) throw new Error("db_unavailable");
   return await db.query(text, params);
 }
 
 async function ensureDbSchema() {
+  if (!db) return;
   await dbQuery("alter table if exists public.nonces add column if not exists origin text", []);
   await dbQuery("alter table if exists public.nonces add column if not exists message text", []);
 }
 
 const provider = new ethers.JsonRpcProvider(BSC_RPC_URL);
+const solConnection = new Connection(SOL_RPC_URL, "confirmed");
 const erc20 = new ethers.Interface([
   "function decimals() view returns (uint8)",
   "function balanceOf(address) view returns (uint256)",
@@ -355,22 +417,144 @@ async function fetchBackendTokenSnapshot(contract) {
   };
 }
 
-async function fetchWctBonusComputed(address) {
-  if (!isAddress(address) || !isAddress(WCT_CONTRACT) || WCT_CONTRACT === "0x0000000000000000000000000000000000000000") return 0n;
+function pickDexPair(pairs) {
+  const list = Array.isArray(pairs) ? pairs : [];
+  return list
+    .filter((p) => p && p.pairAddress && p.priceUsd)
+    .sort((a, b) => Number(b?.liquidity?.usd || 0) - Number(a?.liquidity?.usd || 0))[0];
+}
+
+async function fetchDexScreenerSolTokenSnapshot(mint) {
+  const addr = String(mint || "").trim();
+  if (!isSolAddress(addr)) return null;
+  const url = `https://api.dexscreener.com/token-pairs/v1/solana/${addr}`;
+  const res = await fetch(url, { cache: "no-store" }).catch(() => null);
+  if (!res || !res.ok) return null;
+  const json = await res.json().catch(() => null);
+  const pair = pickDexPair(json);
+  if (!pair) return null;
+  const priceUsd = Number(pair.priceUsd);
+  const priceNative = Number(pair.priceNative);
+  const liquidityUsd = Number(pair?.liquidity?.usd || 0);
+  const volume24hUsd = Number(pair?.volume?.h24 || 0);
+  const marketCap = Number(pair?.marketCap || pair?.fdv || 0);
+  return {
+    source: "dexscreener",
+    url: String(pair.url || ""),
+    pairAddress: String(pair.pairAddress || ""),
+    name: String(pair?.baseToken?.name || ""),
+    symbol: String(pair?.baseToken?.symbol || ""),
+    priceUsd: Number.isFinite(priceUsd) ? priceUsd : null,
+    priceNative: Number.isFinite(priceNative) ? priceNative : null,
+    liquidityUsd: Number.isFinite(liquidityUsd) ? liquidityUsd : null,
+    volume24hUsd: Number.isFinite(volume24hUsd) ? volume24hUsd : null,
+    marketCap: Number.isFinite(marketCap) ? marketCap : null,
+    ts: nowMs(),
+  };
+}
+
+async function fetchSolTokenSupplyUi(mint) {
+  const addr = String(mint || "").trim();
+  if (!isSolAddress(addr)) return null;
   try {
-    const decData = erc20.encodeFunctionData("decimals", []);
-    const balData = erc20.encodeFunctionData("balanceOf", [address]);
-    const [decHex, balHex] = await Promise.all([
-      provider.call({ to: WCT_CONTRACT, data: decData }),
-      provider.call({ to: WCT_CONTRACT, data: balData }),
-    ]);
-    const dec = Number(erc20.decodeFunctionResult("decimals", decHex)[0] ?? 18);
-    const bal = BigInt(balHex);
-    const whole = bal / pow10BigInt(dec);
-    return whole;
+    const pk = new PublicKey(addr);
+    const s = await solConnection.getTokenSupply(pk);
+    const ui = s?.value?.uiAmount;
+    const uiStr = s?.value?.uiAmountString;
+    const v = uiStr !== undefined && uiStr !== null ? Number(uiStr) : Number(ui);
+    return Number.isFinite(v) ? v : null;
   } catch {
-    return 0n;
+    return null;
   }
+}
+
+async function fetchSolscanHoldersCount(mint) {
+  const addr = String(mint || "").trim();
+  if (!isSolAddress(addr)) return null;
+  const headers = { accept: "application/json", "user-agent": "Mozilla/5.0" };
+
+  const metaUrl = `https://public-api.solscan.io/token/meta?tokenAddress=${addr}`;
+  const metaRes = await fetch(metaUrl, { cache: "no-store", headers }).catch(() => null);
+  if (metaRes && metaRes.ok) {
+    const meta = await metaRes.json().catch(() => null);
+    const candidates = [meta?.holders, meta?.holder, meta?.holderCount, meta?.holdersCount, meta?.data?.holders, meta?.data?.holderCount, meta?.data?.total];
+    for (const c of candidates) {
+      const n = Number(c);
+      if (Number.isFinite(n) && n >= 0) return Math.floor(n);
+    }
+  }
+
+  const holdersUrl = `https://public-api.solscan.io/token/holders?tokenAddress=${addr}&limit=1&offset=0`;
+  const holdersRes = await fetch(holdersUrl, { cache: "no-store", headers }).catch(() => null);
+  if (!holdersRes || !holdersRes.ok) return null;
+  const holdersJson = await holdersRes.json().catch(() => null);
+  const candidates = [holdersJson?.total, holdersJson?.totalCount, holdersJson?.data?.total, holdersJson?.data?.totalCount];
+  for (const c of candidates) {
+    const n = Number(c);
+    if (Number.isFinite(n) && n >= 0) return Math.floor(n);
+  }
+  return null;
+}
+
+async function fetchSolBalanceLamports(address) {
+  const addr = String(address || "").trim();
+  if (!isSolAddress(addr)) return null;
+  try {
+    const pk = new PublicKey(addr);
+    const lamports = await solConnection.getBalance(pk, "confirmed");
+    return Number.isFinite(lamports) ? Math.max(0, Math.floor(lamports)) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchWctBonusComputed(address) {
+  const addr = String(address || "").trim();
+  if (isAddress(addr)) {
+    if (!isAddress(WCT_CONTRACT) || WCT_CONTRACT === "0x0000000000000000000000000000000000000000") return 0n;
+    try {
+      const decData = erc20.encodeFunctionData("decimals", []);
+      const balData = erc20.encodeFunctionData("balanceOf", [addr]);
+      const [decHex, balHex] = await Promise.all([
+        provider.call({ to: WCT_CONTRACT, data: decData }),
+        provider.call({ to: WCT_CONTRACT, data: balData }),
+      ]);
+      const dec = Number(erc20.decodeFunctionResult("decimals", decHex)[0] ?? 18);
+      const bal = BigInt(balHex);
+      const whole = bal / pow10BigInt(dec);
+      return whole;
+    } catch {
+      return 0n;
+    }
+  }
+
+  if (isSolAddress(addr)) {
+    const mint = String(SOL_WCT_MINT || "").trim();
+    if (!isSolAddress(mint)) return 0n;
+    try {
+      const ownerPk = new PublicKey(addr);
+      const mintPk = new PublicKey(mint);
+      const resp = await solConnection.getParsedTokenAccountsByOwner(ownerPk, { mint: mintPk });
+      const list = Array.isArray(resp?.value) ? resp.value : [];
+      let decimals = null;
+      let sumRaw = 0n;
+      for (const it of list) {
+        const info = it?.account?.data?.parsed?.info;
+        const ta = info?.tokenAmount;
+        const amt = ta?.amount !== undefined && ta?.amount !== null ? String(ta.amount) : "";
+        const dec = ta?.decimals !== undefined && ta?.decimals !== null ? Number(ta.decimals) : NaN;
+        if (!amt || !/^\d+$/.test(amt)) continue;
+        if (Number.isFinite(dec) && dec >= 0) decimals = decimals === null ? dec : decimals;
+        sumRaw += BigInt(amt);
+      }
+      const d = decimals === null ? 0 : Math.max(0, Math.floor(Number(decimals)));
+      return sumRaw / pow10BigInt(d);
+    } catch {
+      return 0n;
+    }
+  }
+
+  return 0n;
 }
 
 function parseMengyinResultsFromText(text) {
@@ -423,6 +607,14 @@ function outcomeFromScore(homeScore, awayScore) {
 const scheduleCache = {
   loadedAt: 0,
   map: new Map(),
+};
+
+const mem = {
+  nonces: new Map(),
+  sessions: new Map(),
+  predictions: new Map(),
+  predictionsByAddr: new Map(),
+  results: new Map(),
 };
 
 const sseClients = new Set();
@@ -486,6 +678,17 @@ async function auth(req, res, next) {
     const token = raw.startsWith("Bearer ") ? raw.slice("Bearer ".length).trim() : "";
     if (!token) return jsonErr(res, 401, "missing_token");
     const now = nowMs();
+    if (!db) {
+      const sess = mem.sessions.get(token) || null;
+      if (!sess) return jsonErr(res, 401, "invalid_token");
+      const expiresAt = clampInt(sess.expiresAt, 0);
+      if (expiresAt <= now) {
+        mem.sessions.delete(token);
+        return jsonErr(res, 401, "expired_token");
+      }
+      req.auth = { token, address: normAddress(sess.address) };
+      return next();
+    }
     const row = await dbQuery("select token, address, extract(epoch from expires_at)*1000 as expires_at_ms from public.sessions where token = $1 limit 1", [token]);
     const sess = row.rows && row.rows[0] ? row.rows[0] : null;
     if (!sess) return jsonErr(res, 401, "invalid_token");
@@ -534,10 +737,17 @@ async function syncAndSettle() {
     const is00 = safeInt(r.homeScore, 0) === 0 && safeInt(r.awayScore, 0) === 0;
     if (is00 && now < kickoffMs + DRAW_GUARD_MS) continue;
     const outcome = outcomeFromScore(r.homeScore, r.awayScore);
-    await dbQuery(
-      "insert into public.match_results(match_id, result, settled_at, updated_at) values ($1, $2, now(), now()) on conflict (match_id) do update set result = excluded.result, updated_at = now()",
-      [String(m.id), outcome],
-    );
+    if (!db) {
+      const mid = String(m.id);
+      const prev = mem.results.get(mid) || null;
+      const prevRes = prev && prev.result ? String(prev.result) : "";
+      if (prevRes !== outcome) mem.results.set(mid, { matchId: mid, result: outcome, settledAt: nowMs() });
+    } else {
+      await dbQuery(
+        "insert into public.match_results(match_id, result, settled_at, updated_at) values ($1, $2, now(), now()) on conflict (match_id) do update set result = excluded.result, updated_at = now()",
+        [String(m.id), outcome],
+      );
+    }
     sseBroadcast({ type: "result", matchId: String(m.id), result: outcome, ts: nowMs() });
   }
 }
@@ -552,6 +762,87 @@ app.get("/v1/token", wrap(async (req, res) => {
   const contract = String(req.query.contract || "").trim();
   const snap = await fetchBackendTokenSnapshot(contract);
   jsonOk(res, { snapshot: snap });
+}));
+
+app.get("/v1/sol/token", wrap(async (req, res) => {
+  const mint = String(req.query.mint || SOL_WCT_MINT || "").trim();
+  if (!isSolAddress(mint)) return jsonOk(res, { snapshot: null });
+  const [dex, totalSupply, holders, ts] = await Promise.all([
+    fetchDexScreenerSolTokenSnapshot(mint),
+    fetchSolTokenSupplyUi(mint),
+    fetchSolscanHoldersCount(mint),
+    Promise.resolve(nowMs()),
+  ]);
+
+  const priceUsd = dex && typeof dex.priceUsd === "number" && Number.isFinite(dex.priceUsd) ? dex.priceUsd : null;
+  const supply = typeof totalSupply === "number" && Number.isFinite(totalSupply) ? totalSupply : null;
+  const marketCapDex = dex && typeof dex.marketCap === "number" && Number.isFinite(dex.marketCap) ? dex.marketCap : null;
+  const marketCap = marketCapDex !== null ? marketCapDex : typeof priceUsd === "number" && typeof supply === "number" ? priceUsd * supply : null;
+
+  jsonOk(res, {
+    snapshot: {
+      source: "backend-sol",
+      mint,
+      url: dex ? String(dex.url || "") : "",
+      pairAddress: dex ? String(dex.pairAddress || "") : "",
+      name: dex ? String(dex.name || "") : "",
+      symbol: dex ? String(dex.symbol || "") : "",
+      priceUsd,
+      priceNative: dex && typeof dex.priceNative === "number" && Number.isFinite(dex.priceNative) ? dex.priceNative : null,
+      liquidityUsd: dex && typeof dex.liquidityUsd === "number" && Number.isFinite(dex.liquidityUsd) ? dex.liquidityUsd : null,
+      volume24hUsd: dex && typeof dex.volume24hUsd === "number" && Number.isFinite(dex.volume24hUsd) ? dex.volume24hUsd : null,
+      marketCap: typeof marketCap === "number" && Number.isFinite(marketCap) ? marketCap : null,
+      totalSupply: supply,
+      holders: typeof holders === "number" && Number.isFinite(holders) ? holders : null,
+      ts,
+    },
+  });
+}));
+
+app.get("/v1/sol/pool", wrap(async (req, res) => {
+  const address = String(req.query.address || "").trim();
+  const lamports = await fetchSolBalanceLamports(address);
+  const sol = typeof lamports === "number" ? lamports / 1e9 : null;
+  jsonOk(res, { address, lamports, sol, ts: nowMs() });
+}));
+
+app.get("/v1/sol/wallet", wrap(async (req, res) => {
+  const address = String(req.query.address || "").trim();
+  if (!isSolAddress(address)) return jsonOk(res, { address, lamports: null, sol: null, tokenWhole: null, tokenRaw: null, tokenDecimals: null, ts: nowMs() });
+  const [lamports] = await Promise.all([fetchSolBalanceLamports(address)]);
+
+  let tokenRaw = null;
+  let tokenDecimals = null;
+  let tokenWhole = null;
+  if (isSolAddress(SOL_WCT_MINT)) {
+    try {
+      const ownerPk = new PublicKey(address);
+      const mintPk = new PublicKey(String(SOL_WCT_MINT).trim());
+      const resp = await solConnection.getParsedTokenAccountsByOwner(ownerPk, { mint: mintPk });
+      const list = Array.isArray(resp?.value) ? resp.value : [];
+      let dec = null;
+      let sumRaw = 0n;
+      for (const it of list) {
+        const info = it?.account?.data?.parsed?.info;
+        const ta = info?.tokenAmount;
+        const amt = ta?.amount !== undefined && ta?.amount !== null ? String(ta.amount) : "";
+        const d = ta?.decimals !== undefined && ta?.decimals !== null ? Number(ta.decimals) : NaN;
+        if (!amt || !/^\d+$/.test(amt)) continue;
+        if (Number.isFinite(d) && d >= 0) dec = dec === null ? d : dec;
+        sumRaw += BigInt(amt);
+      }
+      tokenRaw = sumRaw.toString();
+      tokenDecimals = dec === null ? 0 : Math.max(0, Math.floor(Number(dec)));
+      tokenWhole = (sumRaw / pow10BigInt(tokenDecimals)).toString();
+    } catch {
+      tokenRaw = null;
+      tokenDecimals = null;
+      tokenWhole = null;
+    }
+  }
+
+  const sol = typeof lamports === "number" ? lamports / 1e9 : null;
+  jsonOk(res, { address, lamports, sol, tokenWhole, tokenRaw, tokenDecimals, ts: nowMs() });
 }));
 
 app.get("/v1/stream", (req, res) => {
@@ -583,12 +874,16 @@ app.get("/v1/stream", (req, res) => {
 
 app.get("/v1/nonce", wrap(async (req, res) => {
   const address = normAddress(req.query.address);
-  if (!isAddress(address)) return jsonErr(res, 400, "invalid_address");
+  if (!isAddress(address) && !isSolAddress(address)) return jsonErr(res, 400, "invalid_address");
   const origin = String((req.headers.origin ?? req.headers.host ?? "WCT") || "WCT");
   const nonce = randHex(16);
   const issuedAt = nowMs();
   const expiresAt = issuedAt + NONCE_TTL_MS;
   const message = buildLoginMessage({ address, nonce, issuedAt, origin });
+  if (!db) {
+    mem.nonces.set(address, { address, nonce, origin, message, issuedAt, expiresAt });
+    return jsonOk(res, { address, nonce, issuedAt, expiresAt, message });
+  }
   await dbQuery(
     "insert into public.nonces(address, nonce, origin, message, issued_at, expires_at) values ($1, $2, $3, $4, to_timestamp($5/1000.0), to_timestamp($6/1000.0)) on conflict (address) do update set nonce = excluded.nonce, origin = excluded.origin, message = excluded.message, issued_at = excluded.issued_at, expires_at = excluded.expires_at",
     [address, nonce, origin, message, issuedAt, expiresAt],
@@ -599,8 +894,27 @@ app.get("/v1/nonce", wrap(async (req, res) => {
 app.post("/v1/login", wrap(async (req, res) => {
   const address = normAddress(req.body?.address);
   const signature = String(req.body?.signature || "");
-  if (!isAddress(address)) return jsonErr(res, 400, "invalid_address");
+  if (!isAddress(address) && !isSolAddress(address)) return jsonErr(res, 400, "invalid_address");
   if (!signature) return jsonErr(res, 400, "missing_signature");
+  if (!db) {
+    const nonceRow = mem.nonces.get(address) || null;
+    if (!nonceRow) return jsonErr(res, 400, "missing_nonce");
+    if (clampInt(nonceRow.expiresAt, 0) <= nowMs()) return jsonErr(res, 400, "expired_nonce");
+    const message = String(nonceRow.message || "") || buildLoginMessage({
+      address,
+      nonce: String(nonceRow.nonce),
+      issuedAt: clampInt(nonceRow.issuedAt, nowMs()),
+      origin: nonceRow.origin ? String(nonceRow.origin) : String((req.headers.origin ?? req.headers.host ?? "WCT") || "WCT"),
+    });
+    const v = verifyLoginMessage({ address, signature, message });
+    if (!v.ok) return jsonErr(res, v.reason === "bad_signature" ? 400 : 401, v.reason);
+    mem.nonces.delete(address);
+    const token = randHex(32);
+    const createdAt = nowMs();
+    const expiresAt = createdAt + SESSION_TTL_MS;
+    mem.sessions.set(token, { token, address, expiresAt });
+    return jsonOk(res, { token, address, expiresAt });
+  }
   const nonceRes = await dbQuery(
     "select address, nonce, origin, message, extract(epoch from issued_at)*1000 as issued_at_ms, extract(epoch from expires_at)*1000 as expires_at_ms from public.nonces where address = $1 limit 1",
     [address],
@@ -637,6 +951,48 @@ app.get("/v1/me", auth, wrap(async (req, res) => {
 app.get("/v1/leaderboard", wrap(async (req, res) => {
   const limit = Math.max(1, Math.min(100, safeInt(req.query.limit, 10)));
   const eligibleMin = Math.max(1, Math.min(1000, safeInt(req.query.eligibleMin, 20)));
+  if (!db) {
+    const rows = [];
+    for (const [addr, list] of Array.from(mem.predictionsByAddr.entries())) {
+      const picks = Array.isArray(list) ? list : [];
+      const total = picks.length;
+      let settled = 0;
+      let correct = 0;
+      for (const p of picks) {
+        const mid = String(p?.matchId || "");
+        const pick = String(p?.pick || "");
+        const r = mem.results.get(mid) || null;
+        const result = r && r.result ? String(r.result) : "";
+        if (!result) continue;
+        settled += 1;
+        if (pick === result) correct += 1;
+      }
+      if (settled < eligibleMin) continue;
+      const winRate = settled > 0 ? correct / settled : 0;
+      const score = settled > 0 ? winRate * Math.log(1 + settled) : 0;
+      rows.push({
+        address: normAddress(addr),
+        matches: Math.max(0, total),
+        settled: Math.max(0, settled),
+        correct: Math.max(0, correct),
+        winRate,
+        score,
+        eligible: settled >= eligibleMin,
+      });
+    }
+    rows.sort((a, b) => {
+      const ds = (b.score || 0) - (a.score || 0);
+      if (ds) return ds;
+      const dw = (b.winRate || 0) - (a.winRate || 0);
+      if (dw) return dw;
+      const dset = (b.settled || 0) - (a.settled || 0);
+      if (dset) return dset;
+      const dc = (b.correct || 0) - (a.correct || 0);
+      if (dc) return dc;
+      return String(a.address).localeCompare(String(b.address));
+    });
+    return jsonOk(res, { rows: rows.slice(0, limit) });
+  }
   const q = await dbQuery(
     `
       with stats as (
@@ -683,6 +1039,34 @@ app.get("/v1/pools", wrap(async (req, res) => {
     .filter(Boolean)
     .slice(0, 200);
   if (!ids.length) return jsonOk(res, { pools: {} });
+  if (!db) {
+    const idSet = new Set(ids.map(String));
+    const countsByMatch = new Map();
+    for (const p of Array.from(mem.predictions.values())) {
+      const mid = String(p?.matchId || "");
+      if (!idSet.has(mid)) continue;
+      const pick = String(p?.pick || "");
+      if (pick !== "HOME" && pick !== "DRAW" && pick !== "AWAY") continue;
+      if (!countsByMatch.has(mid)) countsByMatch.set(mid, { HOME: 0, DRAW: 0, AWAY: 0 });
+      countsByMatch.get(mid)[pick] += 1;
+    }
+    const pools = Object.create(null);
+    ids.forEach((id) => {
+      const counts = countsByMatch.get(id) || { HOME: 0, DRAW: 0, AWAY: 0 };
+      const participantsCount = counts.HOME + counts.DRAW + counts.AWAY;
+      const r = mem.results.get(id) || null;
+      const result = r && r.result ? String(r.result) : null;
+      pools[id] = {
+        totals: { HOME: 0, DRAW: 0, AWAY: 0 },
+        counts,
+        participantsCount,
+        settled: Boolean(result),
+        result,
+        updatedAt: nowMs(),
+      };
+    });
+    return jsonOk(res, { pools });
+  }
   const countsRes = await dbQuery(
     "select match_id, pick, count(*)::int as c from public.predictions where match_id = any($1) group by match_id, pick",
     [ids],
@@ -724,6 +1108,32 @@ app.get("/v1/pools", wrap(async (req, res) => {
 }));
 
 async function listPredictionsForAddress(address, limit) {
+  if (!db) {
+    const addr = normAddress(address);
+    const list = mem.predictionsByAddr.get(addr) || [];
+    const rows = (Array.isArray(list) ? list : [])
+      .slice()
+      .sort((a, b) => clampInt(b?.createdAt, 0) - clampInt(a?.createdAt, 0))
+      .slice(0, limit);
+    return rows.map((b) => {
+      const mid = String(b?.matchId || "");
+      const r = mem.results.get(mid) || null;
+      const result = r && r.result ? String(r.result) : null;
+      const settledAt = r && r.settledAt ? clampInt(r.settledAt, 0) : null;
+      return {
+        matchId: mid,
+        pick: String(b?.pick || ""),
+        amount: 0,
+        spentBase: 0,
+        spentBonus: 0,
+        createdAt: clampInt(b?.createdAt, 0),
+        result,
+        payout: null,
+        profit: null,
+        settledAt,
+      };
+    });
+  }
   const q = await dbQuery(
     `
       select
@@ -769,6 +1179,20 @@ app.get("/v1/bets", auth, wrap(async (req, res) => {
 }));
 
 async function countTodayPredictions(address) {
+  if (!db) {
+    const addr = normAddress(address);
+    const list = mem.predictionsByAddr.get(addr) || [];
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    const start = d.getTime();
+    const end = start + 24 * 60 * 60 * 1000;
+    let c = 0;
+    for (const p of Array.isArray(list) ? list : []) {
+      const ts = clampInt(p?.createdAt, 0);
+      if (ts >= start && ts < end) c += 1;
+    }
+    return c;
+  }
   const q = await dbQuery(
     `
       select count(*)::int as c
@@ -784,6 +1208,28 @@ async function countTodayPredictions(address) {
 }
 
 async function computePool(matchId) {
+  if (!db) {
+    const mid = String(matchId || "");
+    const counts = { HOME: 0, DRAW: 0, AWAY: 0 };
+    for (const p of Array.from(mem.predictions.values())) {
+      const pmid = String(p?.matchId || "");
+      if (pmid !== mid) continue;
+      const pick = String(p?.pick || "");
+      if (pick !== "HOME" && pick !== "DRAW" && pick !== "AWAY") continue;
+      counts[pick] += 1;
+    }
+    const participantsCount = counts.HOME + counts.DRAW + counts.AWAY;
+    const r = mem.results.get(mid) || null;
+    const result = r && r.result ? String(r.result) : null;
+    return {
+      totals: { HOME: 0, DRAW: 0, AWAY: 0 },
+      counts,
+      participantsCount,
+      settled: Boolean(result),
+      result,
+      updatedAt: nowMs(),
+    };
+  }
   const q = await dbQuery("select pick, count(*)::int as c from public.predictions where match_id = $1 group by pick", [matchId]);
   const counts = { HOME: 0, DRAW: 0, AWAY: 0 };
   (q.rows || []).forEach((r) => {
@@ -829,6 +1275,18 @@ app.post("/v1/predictions", auth, wrap(async (req, res) => {
   if (used >= limit) return jsonErr(res, 429, "daily_limit");
 
   const createdAt = nowMs();
+  if (!db) {
+    const key = `${normAddress(address)}::${matchId}`;
+    if (mem.predictions.has(key)) return jsonErr(res, 400, "already_bet");
+    const row = { address: normAddress(address), matchId, pick, createdAt };
+    mem.predictions.set(key, row);
+    if (!mem.predictionsByAddr.has(row.address)) mem.predictionsByAddr.set(row.address, []);
+    mem.predictionsByAddr.get(row.address).push(row);
+    const pool = await computePool(matchId);
+    sseBroadcast({ type: "pool", matchId, pool, ts: nowMs() });
+    sseBroadcast({ type: "leaderboard", ts: nowMs() });
+    return jsonOk(res, { ok: true, pool, prediction: { matchId, pick, createdAt } });
+  }
   const ins = await dbQuery(
     `
       insert into public.predictions(address, match_id, pick, created_at)

@@ -56,7 +56,7 @@ const state = {
   },
 };
 
-const CONTRACT_ADDRESS = "0xD57302103E268A7B161cA26A1e978f26d2097777";
+const CONTRACT_ADDRESS = "";
 const BSC_CHAIN_ID_HEX = "0x38";
 const BSC_RPC_URL = "https://bsc-rpc.publicnode.com";
 const PANCAKE_V2_FACTORY = "0xca143ce32fe78f1f7019d7d551a6402fc5350c73";
@@ -84,21 +84,13 @@ const WCT_BONUS_TIER_10M = 10000000n;
 const MAX_SAFE_POINTS = 9007199254740991;
 const TRADING_FEE_RATE = 0.03;
 
-function getEvmProvider() {
+function getSolProvider() {
   const w = typeof window !== "undefined" ? window : null;
   if (!w) return null;
-  const list = [];
-  const okx = w.okxwallet;
-  if (okx && typeof okx.request === "function") list.push(okx);
-  const eth = w.ethereum;
-  if (eth && typeof eth.request === "function") {
-    const providers = Array.isArray(eth.providers) ? eth.providers : [];
-    providers.forEach((p) => {
-      if (p && typeof p.request === "function") list.push(p);
-    });
-    list.push(eth);
-  }
-  return list.find((p) => p && (p.isOkxWallet || p.isOKXWallet)) || list[0] || null;
+  const sol = w.solana;
+  if (!sol) return null;
+  if (typeof sol.connect !== "function") return null;
+  return sol;
 }
 
 function utf8ToHex(str) {
@@ -125,15 +117,15 @@ const I18N = {
     "nav.rewards": "REWARDS",
     "nav.roadmap": "ROADMAP",
     "hero.kicker": "",
-    "hero.desc": "The first meme token built for the World Cup.<br />Predict. Compete. Earn BNB Rewards.",
+    "hero.desc": "The first World Cup AI prediction market.<br />Predict. Compete. Earn SOL Rewards.",
     "hero.buyNow": "BUY NOW",
     "hero.joinPrediction": "JOIN PREDICTION",
     "overview.title": "TOKEN OVERVIEW",
     "overview.contract": "CONTRACT ADDRESS",
     "overview.network": "NETWORK",
-    "overview.bnb": "BNB CHAIN",
+    "overview.bnb": "SOLANA",
     "overview.balances": "WALLET BALANCES",
-    "overview.bnbBalance": "BNB",
+    "overview.bnbBalance": "SOL",
     "overview.wctBalance": "WCT",
     "overview.holdBonusPoints": "HOLD BONUS",
     "overview.tokenPrice": "TOKEN PRICE",
@@ -181,10 +173,10 @@ const I18N = {
     "leaderboard.hintTop100": "Showing up to top 100 addresses",
     "leaderboard.empty": "No leaderboard data yet.",
     "rewards.poolTitle": "REWARDS POOL",
-    "rewards.totalRewards": "POOL (BNB)",
+    "rewards.totalRewards": "POOL (SOL)",
     "rewards.viewRewards": "VIEW REWARDS",
     "rewards.rulesHtml": "<b>Prize rules</b>: Top 5 share the prize pool — #1 40%, #2 20%, #3 10%, #4 5%, #5 5%. <b>Tax plan</b>: 80% of trading tax is used for rewards distribution. Remaining 20%: 10% buyback & burn, 10% liquidity. <a href=\"./whitepaper.html\">Details</a>.",
-    "rewards.poolEmpty": "No BNB in pool yet",
+    "rewards.poolEmpty": "No SOL in pool yet",
     "rewards.poolLoading": "Syncing on-chain pool…",
     "rewards.modalTitle": "Your Rewards",
     "rewards.available": "Available",
@@ -264,15 +256,15 @@ const I18N = {
     "nav.rewards": "奖励",
     "nav.roadmap": "路线图",
     "hero.kicker": "",
-    "hero.desc": "首个为世界杯打造的 世界杯AI预测市场。<br />预测 · 对战 · 赢取 BNB 奖励。",
+    "hero.desc": "首个为世界杯打造的 世界杯AI预测市场。<br />预测 · 对战 · 赢取 SOL 奖励。",
     "hero.buyNow": "立即购买",
     "hero.joinPrediction": "参与预测",
     "overview.title": "代币概览",
     "overview.contract": "合约地址",
     "overview.network": "网络",
-    "overview.bnb": "BNB 链",
+    "overview.bnb": "SOLANA",
     "overview.balances": "钱包余额",
-    "overview.bnbBalance": "BNB",
+    "overview.bnbBalance": "SOL",
     "overview.wctBalance": "WCT",
     "overview.holdBonusPoints": "",
     "overview.tokenPrice": "代币价格",
@@ -320,10 +312,10 @@ const I18N = {
     "leaderboard.hintTop100": "最多展示前 100 个地址",
     "leaderboard.empty": "暂无排行数据。",
     "rewards.poolTitle": "奖励池",
-    "rewards.totalRewards": "奖池（BNB）",
+    "rewards.totalRewards": "奖池（SOL）",
     "rewards.viewRewards": "查看奖励",
     "rewards.rulesHtml": "<b>获奖机制</b>：前 5 名瓜分奖池——第 1 名 40%，第 2 名 20%，第 3 名 10%，第 4/5 名各 5%。<b>税费规划</b>：交易税费的 80% 用于发放奖励；剩余 20%（10% 回购销毁、10% 流动性）。<a href=\"./whitepaper.html\">查看详情</a>。",
-    "rewards.poolEmpty": "奖池暂无 BNB",
+    "rewards.poolEmpty": "奖池暂无 SOL",
     "rewards.poolLoading": "奖池余额同步中…",
     "rewards.modalTitle": "我的奖励",
     "rewards.available": "可领取",
@@ -577,8 +569,8 @@ function pickDexPair(pairs) {
 
 async function fetchDexScreenerTokenSnapshot(contract) {
   const addr = String(contract || "").trim();
-  if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) return null;
-  const url = `https://api.dexscreener.com/token-pairs/v1/bsc/${addr}`;
+  if (!isSolAddress(addr)) return null;
+  const url = `https://api.dexscreener.com/token-pairs/v1/solana/${addr}`;
   const json = await fetchJsonWithCorsFallback(url);
   const pair = pickDexPair(json);
   if (!pair) return null;
@@ -611,14 +603,14 @@ async function fetchBackendTokenSnapshot(contract) {
   const base = getBackendBaseUrl();
   if (!base) return null;
   const addr = String(contract || "").trim();
-  if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) return null;
-  const url = `${base}/v1/token?contract=${encodeURIComponent(addr)}`;
+  if (!isSolAddress(addr)) return null;
+  const url = `${base}/v1/sol/token?mint=${encodeURIComponent(addr)}`;
   const json = await fetchJsonWithCorsFallback(url);
   const snap = json && typeof json === "object" ? json.snapshot : null;
   if (!snap || typeof snap !== "object") return null;
   return {
-    source: "backend",
-    url: "",
+    source: String(snap.source || "backend-sol"),
+    url: String(snap.url || ""),
     pairAddress: String(snap.pairAddress || ""),
     name: String(snap.name || ""),
     symbol: String(snap.symbol || ""),
@@ -871,34 +863,30 @@ async function refreshTokenSnapshot() {
   const now = Date.now();
   if (state.token.lastFetchMs && now - state.token.lastFetchMs < 15000) return;
   state.token.lastFetchMs = now;
-  let rpcSnap = null;
+  const mint = getMintAddress();
+  if (!mint) {
+    state.token.snapshot = null;
+    updateLiveSeries();
+    await refreshOnchainTreasuryPool();
+    renderRewards();
+    drawOverview();
+    drawChart();
+    return;
+  }
   let dex = null;
   let backendSnap = null;
   try {
-    rpcSnap = await fetchOnchainTokenSnapshot(CONTRACT_ADDRESS);
-  } catch {
-    rpcSnap = null;
-  }
-  try {
-    dex = await fetchDexScreenerTokenSnapshot(CONTRACT_ADDRESS);
+    dex = await fetchDexScreenerTokenSnapshot(mint);
   } catch {
     dex = null;
   }
   try {
-    backendSnap = await fetchBackendTokenSnapshot(CONTRACT_ADDRESS);
+    backendSnap = await fetchBackendTokenSnapshot(mint);
   } catch {
     backendSnap = null;
   }
 
-  if (rpcSnap) {
-    const merged = { ...rpcSnap };
-    if (dex) {
-      if (!merged.url) merged.url = String(dex.url || "");
-      if (!merged.pairAddress) merged.pairAddress = String(dex.pairAddress || "");
-      if (!(typeof merged.volume24hUsd === "number" && Number.isFinite(merged.volume24hUsd))) merged.volume24hUsd = dex.volume24hUsd;
-    }
-    state.token.snapshot = { ...merged, ts: now };
-  } else if (backendSnap) {
+  if (backendSnap) {
     const merged = { ...backendSnap };
     if (dex) {
       if (!merged.url) merged.url = String(dex.url || "");
@@ -909,12 +897,7 @@ async function refreshTokenSnapshot() {
   } else if (dex) {
     state.token.snapshot = { ...dex, ts: now };
   } else {
-    try {
-      const snap = await fetchFlapTokenSnapshot(CONTRACT_ADDRESS);
-      if (snap) state.token.snapshot = { ...snap, ts: now, source: "flap" };
-    } catch {
-      // ignore
-    }
+    state.token.snapshot = null;
   }
 
   const price = state.token.snapshot && typeof state.token.snapshot.priceUsd === "number" ? state.token.snapshot.priceUsd : null;
@@ -930,7 +913,7 @@ async function refreshTokenSnapshot() {
   }
 
   const snap0 = state.token.snapshot;
-  if (snap0 && (snap0.source === "rpc" || snap0.source === "dexscreener")) {
+  if (snap0 && isMarketLiveSnapshot(snap0)) {
     const c1 = changeFromHistoryMs(state.token.history, now, 60 * 60 * 1000);
     const c6 = changeFromHistoryMs(state.token.history, now, 6 * 60 * 60 * 1000);
     const c24 = changeFromHistoryMs(state.token.history, now, 24 * 60 * 60 * 1000);
@@ -944,9 +927,9 @@ async function refreshTokenSnapshot() {
   const v24 = snap && typeof snap.volume24hUsd === "number" ? snap.volume24hUsd : null;
   const pUsd = snap && typeof snap.priceUsd === "number" ? snap.priceUsd : null;
   const pNat = snap && typeof snap.priceNative === "number" ? snap.priceNative : null;
-  const bnbUsd = typeof pUsd === "number" && typeof pNat === "number" && pNat > 0 ? pUsd / pNat : null;
-  if (typeof v24 === "number" && Number.isFinite(v24) && v24 > 0 && typeof bnbUsd === "number" && Number.isFinite(bnbUsd) && bnbUsd > 0) {
-    state.rewards.poolBnb24h = (v24 * TRADING_FEE_RATE) / bnbUsd;
+  const solUsd = typeof pUsd === "number" && typeof pNat === "number" && pNat > 0 ? pUsd / pNat : null;
+  if (typeof v24 === "number" && Number.isFinite(v24) && v24 > 0 && typeof solUsd === "number" && Number.isFinite(solUsd) && solUsd > 0) {
+    state.rewards.poolBnb24h = (v24 * TRADING_FEE_RATE) / solUsd;
   } else {
     state.rewards.poolBnb24h = 0;
   }
@@ -1114,22 +1097,39 @@ function renderChartHint() {
 function isMarketLiveSnapshot(snap) {
   const s = snap || {};
   return (
-    (s.source === "rpc" || s.source === "dexscreener" || s.source === "backend") &&
+    (s.source === "rpc" || s.source === "dexscreener" || s.source === "backend" || s.source === "backend-sol") &&
     typeof s.priceUsd === "number" &&
     Number.isFinite(s.priceUsd) &&
     s.priceUsd > 0
   );
 }
 
+function isSolAddress(addr) {
+  const raw = String(addr || "").trim();
+  if (!raw) return false;
+  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(raw)) return false;
+  return true;
+}
+
+function getMintAddress() {
+  const meta = document.querySelector('meta[name="wct-mint"]');
+  const fromMeta = meta && typeof meta.content === "string" ? meta.content.trim() : "";
+  const fromLs = (localStorage.getItem("wct_mint") || "").trim();
+  const raw = fromLs || fromMeta || "";
+  return isSolAddress(raw) ? raw : "";
+}
+
 function updateContractUI() {
   const el = $("#contractAddr");
   if (!el) return;
-  el.dataset.full = CONTRACT_ADDRESS;
-  el.textContent = truncateAddress(CONTRACT_ADDRESS);
+  const mint = getMintAddress();
+  el.dataset.full = mint || "";
+  el.textContent = mint ? truncateAddress(mint) : "--";
 }
 
 function normAddress(addr) {
-  return String(addr || "").toLowerCase();
+  const raw = String(addr || "").trim();
+  return isHexAddress(raw) ? raw.toLowerCase() : raw;
 }
 
 function isHexAddress(addr) {
@@ -1189,16 +1189,20 @@ function getDailyPredictionLimit(wholeWct) {
 
 function getTreasuryAddress() {
   const fromLs = (localStorage.getItem(TREASURY_STORAGE_KEY) || "").trim();
-  const meta = document.querySelector('meta[name="wct-treasury"]');
+  const meta = document.querySelector('meta[name="wct-prize-pool"]');
   const fromMeta = meta && typeof meta.content === "string" ? meta.content.trim() : "";
   const raw = fromLs || fromMeta;
-  return isHexAddress(raw) ? raw : "";
+  return isSolAddress(raw) ? raw : "";
 }
 
 function getBackendBaseUrl() {
   const meta = document.querySelector('meta[name="wct-backend"]');
   const fromMeta = meta && typeof meta.content === "string" ? meta.content.trim() : "";
   const fromLs = (localStorage.getItem(BACKEND_STORAGE_KEY) || "").trim();
+  if (!fromLs) {
+    const host = typeof window !== "undefined" ? String(window.location?.hostname || "") : "";
+    if (host === "localhost" || host === "127.0.0.1") return "http://localhost:8787";
+  }
   const raw = fromLs || fromMeta;
   if (!raw) return "";
   if (!/^https?:\/\//i.test(raw)) return "";
@@ -1441,7 +1445,7 @@ function backendStartStream() {
 
 async function backendEnsureLogin({ interactive } = {}) {
   if (!state.backend.enabled) return false;
-  const provider = getEvmProvider();
+  const provider = getSolProvider();
   if (!provider || !state.wallet.address) return false;
   const addr = state.wallet.address;
 
@@ -1485,25 +1489,23 @@ async function backendEnsureLogin({ interactive } = {}) {
       return false;
     }
 
-    const signOnce = async (params) => {
-      try {
-        const sig = await provider.request({ method: "personal_sign", params });
-        return { sig: sig ? String(sig) : "", rejected: false };
-      } catch (e) {
-        const code = Number(e?.code || 0);
-        const msg = String(e?.message || "").toLowerCase();
-        if (code === 4001 || msg.includes("rejected")) return { sig: "", rejected: true };
-        return { sig: "", rejected: false };
-      }
+    const bytesToBase64 = (u8) => {
+      const b = u8 instanceof Uint8Array ? u8 : new Uint8Array(u8 || []);
+      let s = "";
+      for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+      return btoa(s);
     };
 
     let signature = "";
-    const s1 = await signOnce([message, addr]);
-    if (s1.sig) signature = s1.sig;
-    else if (!s1.rejected) {
-      const s2 = await signOnce([addr, message]);
-      if (s2.sig) signature = s2.sig;
-      else if (s2.rejected) {
+    try {
+      const msgBytes = new TextEncoder().encode(message);
+      const signed = await provider.signMessage(msgBytes, "utf8");
+      const sigBytes = signed && signed.signature ? signed.signature : signed;
+      if (sigBytes && (sigBytes instanceof Uint8Array || ArrayBuffer.isView(sigBytes))) signature = `base64:${bytesToBase64(sigBytes)}`;
+    } catch (e) {
+      const code = Number(e?.code || 0);
+      const msg = String(e?.message || "").toLowerCase();
+      if (code === 4001 || msg.includes("rejected")) {
         toast(t("toast.backendLoginFailed"));
         state.backend.authed = false;
         return false;
@@ -1523,24 +1525,8 @@ async function backendEnsureLogin({ interactive } = {}) {
       state.backend.authed = true;
       return true;
     } catch (e) {
-      const reason = String(e?.message || "");
-      const status = Number(e?.status || 0);
-      if ((reason === "signature_mismatch" || reason === "bad_signature") && (status === 400 || status === 401)) {
-        const sig2 = await signOnce([addr, message]);
-        if (sig2.sig) {
-          try {
-            const r3 = await backendFetch("/v1/login", { method: "POST", body: { address: addr, signature: sig2.sig } });
-            const tok2 = r3 && r3.token ? String(r3.token) : "";
-            if (!tok2) throw new Error("no_token");
-            state.backend.token = tok2;
-            setBackendToken(addr, tok2);
-            state.backend.authed = true;
-            return true;
-          } catch {
-          }
-        }
-      }
       const msg = String(e?.message || "");
+      const status = Number(e?.status || 0);
       if (msg === "db_unavailable" || status === 503) {
         toast(t("toast.backendUnavailable"));
         state.backend.authed = false;
@@ -1668,7 +1654,7 @@ async function backendSyncAll({ force } = {}) {
 async function refreshOnchainTreasuryPool() {
   const addr = state.rewards.treasuryAddress || getTreasuryAddress();
   state.rewards.treasuryAddress = addr;
-  if (!addr) {
+  if (!addr || !isSolAddress(addr)) {
     state.rewards.poolBnbOnchainWei = null;
     return;
   }
@@ -1676,7 +1662,12 @@ async function refreshOnchainTreasuryPool() {
   if (state.rewards.lastTreasurySyncMs && now - state.rewards.lastTreasurySyncMs < 15000) return;
   state.rewards.lastTreasurySyncMs = now;
   try {
-    state.rewards.poolBnbOnchainWei = await rpcGetBalance(addr);
+    const base = getBackendBaseUrl();
+    if (!base) throw new Error("no_backend");
+    const url = `${base}/v1/sol/pool?address=${encodeURIComponent(addr)}`;
+    const json = await fetchJsonWithCorsFallback(url);
+    const lamports = typeof json?.lamports === "number" && Number.isFinite(json.lamports) ? BigInt(Math.max(0, Math.floor(json.lamports))) : null;
+    state.rewards.poolBnbOnchainWei = lamports;
   } catch {
     state.rewards.poolBnbOnchainWei = null;
   }
@@ -1956,7 +1947,7 @@ function formatUnitsShort(value, decimals, maxFrac = 6) {
 
 async function fetchWalletBalances() {
   const addr = state.wallet.address;
-  const provider = getEvmProvider();
+  const provider = getSolProvider();
   if (!provider || !addr) {
     setText("bnbBalance", "--");
     setText("wctBalance", "--");
@@ -1968,41 +1959,37 @@ async function fetchWalletBalances() {
   if (state.wallet.lastBalanceSyncMs && now - state.wallet.lastBalanceSyncMs < 12000) return;
   state.wallet.lastBalanceSyncMs = now;
 
+  const base = getBackendBaseUrl();
+  if (!base) {
+    setText("bnbBalance", "--");
+    setText("wctBalance", "--");
+    setText("wctBalanceHero", "--");
+    state.wallet.wctBalanceRaw = 0n;
+    updateWalletUI();
+    return;
+  }
   try {
-    const chainId = await provider.request({ method: "eth_chainId" });
-    state.wallet.chainId = chainId;
-    if (chainId !== BSC_CHAIN_ID_HEX) {
-      setText("bnbBalance", "--");
+    const url = `${base}/v1/sol/wallet?address=${encodeURIComponent(addr)}`;
+    const json = await fetchJsonWithCorsFallback(url);
+    const lamports = typeof json?.lamports === "number" && Number.isFinite(json.lamports) ? BigInt(Math.max(0, Math.floor(json.lamports))) : null;
+    if (lamports !== null) setText("bnbBalance", formatUnitsShort(lamports, 9, 4));
+    else setText("bnbBalance", "--");
+
+    const tokenRawStr = json?.tokenRaw !== undefined && json?.tokenRaw !== null ? String(json.tokenRaw) : "";
+    const tokenDec = typeof json?.tokenDecimals === "number" && Number.isFinite(json.tokenDecimals) ? Math.max(0, Math.floor(json.tokenDecimals)) : null;
+    if (tokenRawStr && /^\d+$/.test(tokenRawStr) && tokenDec !== null) {
+      const bal = BigInt(tokenRawStr);
+      state.wallet.wctDecimals = tokenDec;
+      state.wallet.wctBalanceRaw = bal;
+      setText("wctBalance", formatUnitsShort(bal, tokenDec, 6));
+      setText("wctBalanceHero", formatUnitsShort(bal, tokenDec, 6));
+    } else {
       setText("wctBalance", "--");
       setText("wctBalanceHero", "--");
       state.wallet.wctBalanceRaw = 0n;
-      return;
     }
-  } catch {
-    // ignore
-  }
-  try {
-    const bnbHex = await provider.request({ method: "eth_getBalance", params: [addr, "latest"] });
-    const bnb = hexToBigInt(bnbHex);
-    setText("bnbBalance", formatUnitsShort(bnb, 18, 4));
   } catch {
     setText("bnbBalance", "--");
-  }
-
-  try {
-    const token = CONTRACT_ADDRESS;
-    if (!state.wallet.wctDecimals) {
-      const decHex = await provider.request({ method: "eth_call", params: [{ to: token, data: "0x313ce567" }, "latest"] });
-      const dec = Number(hexToBigInt(decHex));
-      state.wallet.wctDecimals = Number.isFinite(dec) ? dec : 18;
-    }
-    const data = `0x70a08231${encodeAddressParam(addr)}`;
-    const balHex = await provider.request({ method: "eth_call", params: [{ to: token, data }, "latest"] });
-    const bal = hexToBigInt(balHex);
-    state.wallet.wctBalanceRaw = bal;
-    setText("wctBalance", formatUnitsShort(bal, state.wallet.wctDecimals, 6));
-    setText("wctBalanceHero", formatUnitsShort(bal, state.wallet.wctDecimals, 6));
-  } catch {
     setText("wctBalance", "--");
     setText("wctBalanceHero", "--");
     state.wallet.wctBalanceRaw = 0n;
@@ -2061,25 +2048,19 @@ function updateWalletUI() {
 }
 
 async function tryRestoreWalletSession() {
-  const provider = getEvmProvider();
+  const provider = getSolProvider();
   if (!provider) return;
-  let accounts = null;
   try {
-    accounts = await provider.request({ method: "eth_accounts" });
+    const res = await provider.connect({ onlyIfTrusted: true });
+    const pk = res?.publicKey || provider.publicKey;
+    const addr = pk ? String(pk.toString()) : "";
+    if (!addr) return;
+    state.wallet.address = addr;
+    state.wallet.connected = true;
+    state.wallet.manualConnected = true;
+    state.wallet.walletMenuOpen = false;
   } catch {
-    accounts = null;
-  }
-  const addr = accounts && accounts[0] ? String(accounts[0]) : "";
-  if (!addr) return;
-  state.wallet.address = addr;
-  state.wallet.connected = true;
-  state.wallet.manualConnected = true;
-  state.wallet.walletMenuOpen = false;
-  try {
-    const chainId = await provider.request({ method: "eth_chainId" });
-    state.wallet.chainId = chainId;
-    if (chainId && chainId !== BSC_CHAIN_ID_HEX) toast(t("toast.switchToBsc"));
-  } catch {
+    return;
   }
   state.wallet.wctDecimals = null;
   state.wallet.wctBalanceRaw = 0n;
@@ -2091,49 +2072,9 @@ async function tryRestoreWalletSession() {
   if (state.backend.enabled) backendSyncAll({ force: true });
 }
 
-async function ensureBscNetwork() {
-  const provider = getEvmProvider();
-  if (!provider) return false;
-  const chainId = await provider.request({ method: "eth_chainId" });
-  state.wallet.chainId = chainId;
-  if (chainId === BSC_CHAIN_ID_HEX) return true;
-  try {
-    await provider.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: BSC_CHAIN_ID_HEX }],
-    });
-    state.wallet.chainId = BSC_CHAIN_ID_HEX;
-    return true;
-  } catch (err) {
-    if (err && err.code === 4902) {
-      try {
-        await provider.request({
-          method: "wallet_addEthereumChain",
-          params: [
-            {
-              chainId: BSC_CHAIN_ID_HEX,
-              chainName: "BNB Smart Chain",
-              nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
-              rpcUrls: ["https://bsc-dataseed.binance.org/"],
-              blockExplorerUrls: ["https://bscscan.com/"],
-            },
-          ],
-        });
-        state.wallet.chainId = BSC_CHAIN_ID_HEX;
-        return true;
-      } catch (e) {
-        toast(t("toast.networkAddRejected"));
-        return false;
-      }
-    }
-    toast(t("toast.networkSwitchRejected"));
-    return false;
-  }
-}
-
 async function connectWallet() {
-  const provider = getEvmProvider();
-  if (!provider || typeof provider.request !== "function") {
+  const provider = getSolProvider();
+  if (!provider) {
     const msg = t("toast.noWallet");
     toast(msg);
     try {
@@ -2144,12 +2085,11 @@ async function connectWallet() {
   }
 
   try {
-    const accounts = await provider.request({ method: "eth_requestAccounts" });
-    state.wallet.address = accounts && accounts[0] ? accounts[0] : null;
+    const res = await provider.connect();
+    const pk = res?.publicKey || provider.publicKey;
+    state.wallet.address = pk ? String(pk.toString()) : null;
     state.wallet.connected = !!state.wallet.address;
     state.wallet.manualConnected = !!state.wallet.address;
-    const ok = await ensureBscNetwork();
-    if (!ok) toast(t("toast.switchToBsc"));
     state.wallet.walletMenuOpen = false;
     state.wallet.wctDecimals = null;
     state.wallet.wctBalanceRaw = 0n;
@@ -2168,6 +2108,11 @@ async function connectWallet() {
 }
 
 function disconnectWallet() {
+  try {
+    const provider = getSolProvider();
+    if (provider && typeof provider.disconnect === "function") provider.disconnect();
+  } catch {
+  }
   state.wallet.address = null;
   state.wallet.connected = false;
   state.wallet.manualConnected = false;
@@ -2184,10 +2129,11 @@ function disconnectWallet() {
 }
 
 function setupWalletListeners() {
-  const provider = getEvmProvider();
+  const provider = getSolProvider();
   if (!provider || typeof provider.on !== "function") return;
-  provider.on("accountsChanged", (accounts) => {
-    state.wallet.address = accounts && accounts[0] ? accounts[0] : null;
+  const handleAddress = (pk) => {
+    const addr = pk ? String(pk.toString()) : "";
+    state.wallet.address = addr || null;
     state.wallet.connected = !!state.wallet.address;
     if (!state.wallet.address) {
       state.wallet.manualConnected = false;
@@ -2203,13 +2149,11 @@ function setupWalletListeners() {
     updateWalletUI();
     fetchWalletBalances();
     if (state.wallet.address && state.backend.enabled) backendSyncAll({ force: true });
-  });
-  provider.on("chainChanged", (chainId) => {
-    state.wallet.chainId = chainId;
-    if (state.wallet.address && chainId !== BSC_CHAIN_ID_HEX) {
-      toast(t("toast.switchToBsc"));
-    }
-  });
+  };
+
+  provider.on("connect", (pk) => handleAddress(pk || provider.publicKey));
+  provider.on("disconnect", () => handleAddress(null));
+  provider.on("accountChanged", (pk) => handleAddress(pk || provider.publicKey));
 }
 
 function copyText(text) {
@@ -3606,7 +3550,7 @@ function startScheduleTicker() {
         backendSyncAll();
       }
     }
-    if (state.wallet.address && getEvmProvider()) {
+    if (state.wallet.address && getSolProvider()) {
       const now = Date.now();
       if (!state.wallet.lastBalanceSyncMs || now - state.wallet.lastBalanceSyncMs >= 15000) {
         state.wallet.lastBalanceSyncMs = now;
@@ -3717,7 +3661,7 @@ function setupRewardsModal() {
 }
 
 function rewardKey() {
-  return state.wallet.address ? `wct_rewards_${state.wallet.address.toLowerCase()}` : null;
+  return state.wallet.address ? `wct_rewards_${normAddress(state.wallet.address)}` : null;
 }
 
 function hydrateRewardsFromAddress() {
@@ -3764,7 +3708,7 @@ function renderRewards() {
   const hintEl = document.getElementById("rewardsPoolHint");
   const onchainWei = state.rewards.poolBnbOnchainWei;
   if (typeof onchainWei === "bigint") {
-    setText("rewardsPoolValue", formatUnitsShort(onchainWei, 18, 4));
+    setText("rewardsPoolValue", formatUnitsShort(onchainWei, 9, 4));
     if (hintEl) hintEl.textContent = onchainWei > 0n ? "" : t("rewards.poolEmpty");
     return;
   }
@@ -3844,12 +3788,10 @@ async function placePrediction(matchId, pick) {
     toast(t("toast.connectToSubmit"));
     return;
   }
-  if (!getEvmProvider()) {
+  if (!getSolProvider()) {
     toast(t("toast.noWallet"));
     return;
   }
-  const netOk = await ensureBscNetwork();
-  if (!netOk) return;
   if (!state.schedule.loaded) return;
   const match = state.schedule.matches.find((m) => m.id === matchId);
   if (!match) return;
@@ -4226,15 +4168,6 @@ function boot() {
         });
     }
 
-    const provider = getEvmProvider();
-    if (provider) {
-      provider
-        .request({ method: "eth_chainId" })
-        .then((chainId) => {
-          state.wallet.chainId = chainId;
-        })
-        .catch(() => {});
-    }
     window.__WCT_BOOTED = true;
   } catch {
     const connectBtn = $("#connectWalletBtn");

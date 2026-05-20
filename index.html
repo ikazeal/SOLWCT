@@ -3,18 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WorldCup Token</title>
-    <meta name="description" content="WorldCup Token (WCT) · Predict matches, compete on leaderboard, and earn rewards." />
+    <title>World Cup AI Prediction Market</title>
+    <meta name="description" content="WORLDCUPTOKRN (WCT) · Predict matches, compete on leaderboard, and earn SOL rewards." />
     <meta name="theme-color" content="#070411" />
     <meta name="wct-backend" content="https://flapcc.onrender.com" />
-    <meta name="wct-treasury" content="0x1d4198b69d3e1195567d11fe44471a7320ac1177" />
-    <meta property="og:title" content="WorldCup Token" />
-    <meta property="og:description" content="Predict matches, compete, and earn rewards." />
+    <meta name="wct-mint" content="" />
+    <meta name="wct-prize-pool" content="" />
+    <meta property="og:title" content="World Cup AI Prediction Market" />
+    <meta property="og:description" content="Predict matches, compete, and earn SOL rewards." />
     <meta property="og:type" content="website" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=20260516" />
+    <link rel="stylesheet" href="./styles.css?v=20260521" />
   </head>
   <body>
     <div class="bg">
@@ -30,8 +31,8 @@
             <img class="brand__markImg" src="./hero-bg.png.png" alt="" loading="eager" decoding="async" />
           </span>
           <span class="brand__text">
-            <span class="brand__title">WORLDCUP</span>
-            <span class="brand__subtitle">TOKEN</span>
+            <span class="brand__title">WORLDCUPTOKRN</span>
+            <span class="brand__subtitle">WCT</span>
           </span>
         </a>
 
@@ -84,10 +85,10 @@
             <span class="hero__titleBottom">TOKEN</span>
           </h1>
           <p class="hero__desc" data-i18n-html="hero.desc">
-            The first meme token built for the World Cup.<br />Predict. Compete. Earn BNB Rewards.
+            The first World Cup AI prediction market.<br />Predict. Compete. Earn SOL Rewards.
           </p>
           <div class="hero__actions">
-            <a class="btn btn--primary" id="buyNowBtn" href="https://flap.sh/bnb/0xD57302103E268A7B161cA26A1e978f26d2097777" target="_blank" rel="noreferrer" data-i18n="hero.buyNow">BUY NOW</a>
+            <a class="btn btn--primary" id="buyNowBtn" href="https://pump.fun" target="_blank" rel="noreferrer" data-i18n="hero.buyNow">BUY NOW</a>
             <a class="btn btn--soft" href="#prediction" data-i18n="hero.joinPrediction">JOIN PREDICTION</a>
           </div>
         </div>
@@ -110,7 +111,7 @@
                     <span class="overviewHead__token mono">WCT</span>
                   </span>
                   <span class="overviewHead__sep" aria-hidden="true">·</span>
-                  <span class="overviewHead__net" data-i18n="overview.bnb">BNB CHAIN</span>
+                  <span class="overviewHead__net" data-i18n="overview.bnb">SOLANA</span>
                 </div>
               </div>
             </div>
@@ -118,7 +119,7 @@
             <div class="kv">
               <div class="kv__label" data-i18n="overview.contract">CONTRACT ADDRESS</div>
               <div class="kv__row">
-                <div id="contractAddr" class="kv__value kv__value--contract mono" data-full="0x1234...ABCD5678">0x1234...ABCD5678</div>
+                <div id="contractAddr" class="kv__value kv__value--contract mono" data-full="">--</div>
                 <button class="iconBtn iconBtn--copy" id="copyContractBtn" type="button" aria-label="Copy contract address" data-i18n-aria="overview.copy">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M8 7.8V6.5C8 5.12 9.12 4 10.5 4H18.5C19.88 4 21 5.12 21 6.5V14.5C21 15.88 19.88 17 18.5 17H17.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
@@ -134,7 +135,7 @@
                 <div class="kv__value">
                   <span class="chip">
                     <span class="chip__dot" aria-hidden="true"></span>
-                    <span data-i18n="overview.bnb">BNB CHAIN</span>
+                    <span data-i18n="overview.bnb">SOLANA</span>
                   </span>
                 </div>
               </div>
@@ -149,7 +150,7 @@
                 </div>
                 <div class="wctHero__bottom">
                   <span class="wctHero__meta wctHero__meta--muted">
-                    <span class="wctHero__metaLabel" data-i18n="overview.bnbBalance">BNB</span>
+                    <span class="wctHero__metaLabel" data-i18n="overview.bnbBalance">SOL</span>
                     <span id="bnbBalance" class="mono">--</span>
                   </span>
                 </div>
@@ -258,7 +259,7 @@
               <div class="rewardsLabel" data-i18n="rewards.totalRewards">TOTAL REWARDS</div>
               <div class="rewardsValue">
                 <span class="rewardsNum" id="rewardsPoolValue">--</span>
-                <span class="rewardsUnit">BNB</span>
+                <span class="rewardsUnit">SOL</span>
               </div>
               <div class="rewardsHint" id="rewardsPoolHint"></div>
               <button class="btn btn--primary rewardsBtn" type="button" id="viewRewardsBtn" data-i18n="rewards.viewRewards">VIEW REWARDS</button>
@@ -267,7 +268,7 @@
             <div class="rewardsBody__right" aria-hidden="true">
               <div class="coin coin--img" aria-hidden="true">
                 <div class="coin__tilt">
-                  <img class="coin__img" src="./bnblogo.png" alt="" loading="lazy" decoding="async" />
+                  <img class="coin__img" src="./token-avatar.png" alt="" loading="lazy" decoding="async" />
                 </div>
               </div>
             </div>
@@ -333,11 +334,11 @@
         <div class="modal__body">
           <div class="rewardRow">
             <div class="rewardRow__label" data-i18n="rewards.available">Available</div>
-            <div class="rewardRow__value"><span id="rewardAvailable">0.00</span> BNB</div>
+            <div class="rewardRow__value"><span id="rewardAvailable">0.00</span> SOL</div>
           </div>
           <div class="rewardRow">
             <div class="rewardRow__label" data-i18n="rewards.claimed">Claimed</div>
-            <div class="rewardRow__value"><span id="rewardClaimed">0.00</span> BNB</div>
+            <div class="rewardRow__value"><span id="rewardClaimed">0.00</span> SOL</div>
           </div>
           <button id="claimRewardsBtn" class="btn btn--primary modal__cta" type="button" data-i18n="rewards.claim">CLAIM</button>
           <div class="modal__hint" id="claimHint" data-i18n="rewards.hintDisconnected">Connect wallet to claim rewards.</div>
@@ -355,6 +356,6 @@
         });
       })();
     </script>
-    <script src="./app.js?v=20260519-4"></script>
+    <script src="./app.js?v=20260521-1"></script>
   </body>
 </html>
