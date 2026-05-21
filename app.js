@@ -57,11 +57,6 @@ const state = {
 };
 
 const CONTRACT_ADDRESS = "";
-const BSC_CHAIN_ID_HEX = "0x38";
-const BSC_RPC_URL = "https://bsc-rpc.publicnode.com";
-const PANCAKE_V2_FACTORY = "0xca143ce32fe78f1f7019d7d551a6402fc5350c73";
-const WBNB_ADDRESS = "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c";
-const USDT_ADDRESS = "0x55d398326f99059ff775485246999027b3197955";
 const LANG_STORAGE_KEY = "wct_lang";
 const BACKEND_STORAGE_KEY = "wct_backend";
 const BACKEND_TOKEN_PREFIX = "wct_backend_token_";
@@ -87,10 +82,13 @@ const TRADING_FEE_RATE = 0.03;
 function getSolProvider() {
   const w = typeof window !== "undefined" ? window : null;
   if (!w) return null;
-  const sol = w.solana;
-  if (!sol) return null;
-  if (typeof sol.connect !== "function") return null;
-  return sol;
+  // 1. 优先使用 Phantom 注入的 provider
+  if (w.solana?.isPhantom) return w.solana;
+  // 2. 尝试其他通用的 solana 注入
+  if (w.solana && typeof w.solana.connect === "function") return w.solana;
+  // 3. 尝试 phantom.solana 注入
+  if (w.phantom?.solana) return w.phantom.solana;
+  return null;
 }
 
 function utf8ToHex(str) {
@@ -684,82 +682,6 @@ async function rpcRequest(url, method, params) {
   const json = await res.json();
   if (json && json.error) throw new Error(String(json.error?.message || "RPC error"));
   return json?.result;
-}
-
-async function rpcEthCall(to, data) {
-  const result = await rpcRequest(BSC_RPC_URL, "eth_call", [{ to, data }, "latest"]);
-  return String(result || "0x");
-}
-
-async function rpcGetBalance(address) {
-  const addr = String(address || "");
-  if (!isHexAddress(addr)) return 0n;
-  const result = await rpcRequest(BSC_RPC_URL, "eth_getBalance", [addr, "latest"]);
-  return hexToBigInt(String(result || "0x0"));
-}
-
-async function rpcGetPair(tokenA, tokenB) {
-  const data = `0xe6a43905${pad32Address(tokenA)}${pad32Address(tokenB)}`;
-  const out = await rpcEthCall(PANCAKE_V2_FACTORY, data);
-  return decodeAddressWord(out);
-}
-
-async function rpcTokenDecimals(token) {
-  const out = await rpcEthCall(token, "0x313ce567");
-  return Number(BigInt(out || "0x0"));
-}
-
-async function rpcTokenTotalSupply(token) {
-  const out = await rpcEthCall(token, "0x18160ddd");
-  return BigInt(out || "0x0");
-}
-
-async function rpcTokenName(token) {
-  const out = await rpcEthCall(token, "0x06fdde03");
-  return decodeAbiString(out);
-}
-
-async function rpcTokenSymbol(token) {
-  const out = await rpcEthCall(token, "0x95d89b41");
-  return decodeAbiString(out);
-}
-
-async function rpcPairToken0(pair) {
-  const out = await rpcEthCall(pair, "0x0dfe1681");
-  return decodeAddressWord(out);
-}
-
-async function rpcPairToken1(pair) {
-  const out = await rpcEthCall(pair, "0xd21220a7");
-  return decodeAddressWord(out);
-}
-
-async function rpcPairReserves(pair) {
-  const out = await rpcEthCall(pair, "0x0902f1ac");
-  const h = String(out || "").replace(/^0x/i, "");
-  if (h.length < 128) return { r0: 0n, r1: 0n };
-  const r0 = BigInt(`0x${h.slice(0, 64)}`);
-  const r1 = BigInt(`0x${h.slice(64, 128)}`);
-  return { r0, r1 };
-}
-
-async function rpcV2PriceBaseInQuote(pair, base, quote) {
-  const [t0, t1, res, d0, d1] = await Promise.all([rpcPairToken0(pair), rpcPairToken1(pair), rpcPairReserves(pair), rpcTokenDecimals(base), rpcTokenDecimals(quote)]);
-  const baseLc = String(base || "").toLowerCase();
-  const quoteLc = String(quote || "").toLowerCase();
-  if (String(t0).toLowerCase() === baseLc && String(t1).toLowerCase() === quoteLc) {
-    const num = res.r1 * pow10n(d0);
-    const den = res.r0 * pow10n(d1);
-    const price = ratioBigIntToNumber(num, den, 18);
-    return { price, reserveBase: res.r0, reserveQuote: res.r1, token0: t0, token1: t1, dec0: d0, dec1: d1 };
-  }
-  if (String(t0).toLowerCase() === quoteLc && String(t1).toLowerCase() === baseLc) {
-    const num = res.r0 * pow10n(d1);
-    const den = res.r1 * pow10n(d0);
-    const price = ratioBigIntToNumber(num, den, 18);
-    return { price, reserveBase: res.r1, reserveQuote: res.r0, token0: t0, token1: t1, dec0: d0, dec1: d1 };
-  }
-  return { price: null, reserveBase: 0n, reserveQuote: 0n, token0: t0, token1: t1, dec0: d0, dec1: d1 };
 }
 
 function changeFromHistoryMs(history, nowMs, lookbackMs) {
@@ -2062,7 +1984,7 @@ async function tryRestoreWalletSession() {
     state.wallet.connected = true;
     state.wallet.manualConnected = true;
     state.wallet.walletMenuOpen = false;
-  } catch {
+  } catch (err) {
     return;
   }
   state.wallet.wctDecimals = null;
@@ -2080,33 +2002,51 @@ async function connectWallet() {
   if (!provider) {
     const msg = t("toast.noWallet");
     toast(msg);
-    try {
-      window.alert(msg);
-    } catch {
+    return;
+  }
+
+  let connectedPk = null;
+  try {
+    // 强制弹出连接窗口
+    const res = await provider.connect();
+    connectedPk = res?.publicKey || provider.publicKey;
+    
+    if (!connectedPk) {
+      throw new Error("User denied connection or no public key found");
     }
+  } catch (err) {
+    console.error("Wallet connection failed:", err);
+    toast(t("toast.walletRejected"));
     return;
   }
 
   try {
-    const res = await provider.connect();
-    const pk = res?.publicKey || provider.publicKey;
-    state.wallet.address = pk ? String(pk.toString()) : null;
-    state.wallet.connected = !!state.wallet.address;
-    state.wallet.manualConnected = !!state.wallet.address;
+    const addr = String(connectedPk.toString());
+    state.wallet.address = addr;
+    state.wallet.connected = true;
+    state.wallet.manualConnected = true;
     state.wallet.walletMenuOpen = false;
+    
+    // 重置余额同步状态
     state.wallet.wctDecimals = null;
     state.wallet.wctBalanceRaw = 0n;
     state.wallet.lastBalanceSyncMs = 0;
+
+    // 执行后续同步逻辑
     initBackendState();
     hydrateRewardsFromAddress();
     updateWalletUI();
     fetchWalletBalances();
+    
     if (state.wallet.address && state.backend.enabled) {
       backendSyncAll({ force: true });
     }
-    toast(state.wallet.address ? t("toast.walletConnected") : t("toast.walletFailed"));
-  } catch {
-    toast(t("toast.walletRejected"));
+    
+    toast(t("toast.walletConnected"));
+  } catch (err) {
+    console.error("Post-connection sync failed:", err);
+    // 即使同步失败，也认为已连接成功，不显示“拒绝连接”
+    toast(t("toast.walletConnected"));
   }
 }
 
