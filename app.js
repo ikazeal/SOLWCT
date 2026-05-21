@@ -1983,8 +1983,9 @@ function formatUnitsShort(value, decimals, maxFrac = 6) {
 
 async function fetchWalletBalances() {
   const addr = state.wallet.address;
-  const provider = getSolProvider();
-  if (!provider || !addr) {
+  const type = localStorage.getItem("wct_wallet_type") || "phantom";
+  const provider = getSolProvider(type);
+  if (!addr) {
     setText("bnbBalance", "--");
     setText("wctBalance", "--");
     setText("wctBalanceHero", "--");
@@ -1992,44 +1993,48 @@ async function fetchWalletBalances() {
     return;
   }
   const now = Date.now();
-  if (state.wallet.lastBalanceSyncMs && now - state.wallet.lastBalanceSyncMs < 12000) return;
+  if (state.wallet.lastBalanceSyncMs && now - state.wallet.lastBalanceSyncMs < 8000) return;
   state.wallet.lastBalanceSyncMs = now;
 
   const base = getBackendBaseUrl();
-  if (!base) {
-    setText("bnbBalance", "--");
-    setText("wctBalance", "--");
-    setText("wctBalanceHero", "--");
-    state.wallet.wctBalanceRaw = 0n;
-    updateWalletUI();
-    return;
-  }
-  try {
-    const url = `${base}/v1/sol/wallet?address=${encodeURIComponent(addr)}`;
-    const json = await fetchJsonWithCorsFallback(url);
-    const lamports = typeof json?.lamports === "number" && Number.isFinite(json.lamports) ? BigInt(Math.max(0, Math.floor(json.lamports))) : null;
-    if (lamports !== null) setText("bnbBalance", formatUnitsShort(lamports, 9, 4));
-    else setText("bnbBalance", "--");
+  const mint = getWctMint();
+  
+  // 1. 优先尝试通过后端统一获取 (后端会处理 RPC 聚合)
+  if (base) {
+    try {
+      const url = `${base}/v1/sol/wallet?address=${encodeURIComponent(addr)}&mint=${encodeURIComponent(mint)}`;
+      const json = await fetchJsonWithCorsFallback(url);
+      
+      const lamports = typeof json?.lamports === "number" ? BigInt(Math.floor(json.lamports)) : null;
+      if (lamports !== null) setText("bnbBalance", (Number(lamports) / 1e9).toFixed(4) + " SOL");
 
-    const tokenRawStr = json?.tokenRaw !== undefined && json?.tokenRaw !== null ? String(json.tokenRaw) : "";
-    const tokenDec = typeof json?.tokenDecimals === "number" && Number.isFinite(json.tokenDecimals) ? Math.max(0, Math.floor(json.tokenDecimals)) : null;
-    if (tokenRawStr && /^\d+$/.test(tokenRawStr) && tokenDec !== null) {
-      const bal = BigInt(tokenRawStr);
-      state.wallet.wctDecimals = tokenDec;
-      state.wallet.wctBalanceRaw = bal;
-      setText("wctBalance", formatUnitsShort(bal, tokenDec, 6));
-      setText("wctBalanceHero", formatUnitsShort(bal, tokenDec, 6));
-    } else {
-      setText("wctBalance", "--");
-      setText("wctBalanceHero", "--");
-      state.wallet.wctBalanceRaw = 0n;
+      const tokenRaw = json?.tokenRaw;
+      const tokenDec = typeof json?.tokenDecimals === "number" ? json.tokenDecimals : 9;
+      if (tokenRaw !== undefined && tokenRaw !== null) {
+        const bal = BigInt(String(tokenRaw));
+        state.wallet.wctDecimals = tokenDec;
+        state.wallet.wctBalanceRaw = bal;
+        const formatted = (Number(bal) / Math.pow(10, tokenDec)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        setText("wctBalance", formatted);
+        setText("wctBalanceHero", formatted);
+        updateWalletUI();
+        return; // 成功获取则返回
+      }
+    } catch (e) {
+      console.warn("Backend balance fetch failed, falling back to public RPC:", e);
     }
-  } catch {
-    setText("bnbBalance", "--");
-    setText("wctBalance", "--");
-    setText("wctBalanceHero", "--");
-    state.wallet.wctBalanceRaw = 0n;
   }
+
+  // 2. Fallback: 直接调用公共 RPC 获取原生 SOL 余额
+  try {
+    const rpc = "https://api.mainnet-beta.solana.com";
+    const res = await rpcRequest(rpc, "getBalance", [addr]);
+    const sol = (Number(res || 0) / 1e9).toFixed(4);
+    setText("bnbBalance", sol + " SOL");
+  } catch (e) {
+    console.warn("Public RPC SOL fetch failed:", e);
+  }
+  
   updateWalletUI();
 }
 
