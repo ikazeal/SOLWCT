@@ -82,12 +82,20 @@ const TRADING_FEE_RATE = 0.03;
 function getSolProvider() {
   const w = typeof window !== "undefined" ? window : null;
   if (!w) return null;
-  // 1. 优先使用 Phantom 注入的 provider
-  if (w.solana?.isPhantom) return w.solana;
-  // 2. 尝试其他通用的 solana 注入
-  if (w.solana && typeof w.solana.connect === "function") return w.solana;
-  // 3. 尝试 phantom.solana 注入
-  if (w.phantom?.solana) return w.phantom.solana;
+
+  // 1. 尝试检测通用的 solana 注入
+  let provider = w.solana || (w.phantom ? w.phantom.solana : null);
+
+  // 2. 如果存在多个钱包冲突，优先寻找 Phantom
+  if (w.solana?.providers?.length) {
+    provider = w.solana.providers.find(p => p.isPhantom) || w.solana.providers[0];
+  }
+
+  // 3. 验证关键方法是否存在
+  if (provider && typeof provider.connect === "function") {
+    return provider;
+  }
+
   return null;
 }
 
@@ -1999,54 +2007,65 @@ async function tryRestoreWalletSession() {
 
 async function connectWallet() {
   const provider = getSolProvider();
+  
   if (!provider) {
-    const msg = t("toast.noWallet");
-    toast(msg);
+    toast(t("toast.noWallet"));
     return;
   }
 
-  let connectedPk = null;
   try {
-    // 强制弹出连接窗口
-    const res = await provider.connect();
-    connectedPk = res?.publicKey || provider.publicKey;
+    console.log("Attempting robust connection...");
+    
+    // 某些环境下 connect() 可能不返回 Promise 而是触发事件，这里做一个超时保护或强制等待
+    const connectPromise = provider.connect();
+    
+    // 如果 provider 已经处于 connected 状态，直接获取 pk
+    if (provider.isConnected && provider.publicKey) {
+      console.log("Wallet already connected, using existing public key.");
+    } else {
+      await connectPromise;
+    }
+
+    const connectedPk = provider.publicKey;
     
     if (!connectedPk) {
-      throw new Error("User denied connection or no public key found");
+      throw new Error("Connected but no public key found");
     }
-  } catch (err) {
-    console.error("Wallet connection failed:", err);
-    toast(t("toast.walletRejected"));
-    return;
-  }
 
-  try {
     const addr = String(connectedPk.toString());
+    console.log("Connection verified for address:", addr);
+
     state.wallet.address = addr;
     state.wallet.connected = true;
     state.wallet.manualConnected = true;
     state.wallet.walletMenuOpen = false;
-    
-    // 重置余额同步状态
-    state.wallet.wctDecimals = null;
-    state.wallet.wctBalanceRaw = 0n;
-    state.wallet.lastBalanceSyncMs = 0;
 
-    // 执行后续同步逻辑
-    initBackendState();
-    hydrateRewardsFromAddress();
+    // 立即更新 UI，让用户看到“已连接”
     updateWalletUI();
-    fetchWalletBalances();
-    
-    if (state.wallet.address && state.backend.enabled) {
-      backendSyncAll({ force: true });
-    }
-    
     toast(t("toast.walletConnected"));
+
+    // 后续数据同步异步执行，不影响连接状态展示
+    Promise.resolve().then(async () => {
+      initBackendState();
+      hydrateRewardsFromAddress();
+      await fetchWalletBalances().catch(() => {});
+      if (state.backend.enabled) {
+        backendSyncAll({ force: true }).catch(() => {});
+      }
+    });
+
   } catch (err) {
-    console.error("Post-connection sync failed:", err);
-    // 即使同步失败，也认为已连接成功，不显示“拒绝连接”
-    toast(t("toast.walletConnected"));
+    console.error("Critical connection failure:", err);
+    
+    const errMsg = String(err?.message || err || "").toLowerCase();
+    if (errMsg.includes("user rejected") || errMsg.includes("denied")) {
+      toast(t("toast.walletRejected"));
+    } else {
+      // 提示更详细的连接失败
+      toast(t("toast.walletFailed"));
+      // 额外弹窗提示用户可能的原因
+      console.warn("Hint: Ensure your wallet is unlocked and on Mainnet.");
+    }
   }
 }
 
