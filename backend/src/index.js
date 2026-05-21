@@ -255,6 +255,34 @@ function pickDexPair(pairs) {
     .sort((a, b) => Number(b?.liquidity?.usd || 0) - Number(a?.liquidity?.usd || 0))[0];
 }
 
+async function fetchPumpFunTokenSnapshot(mint) {
+  const addr = String(mint || "").trim();
+  if (!isSolAddress(addr)) return null;
+  const url = `https://frontend-api.pump.fun/coins/${addr}`;
+  const res = await fetch(url, { cache: "no-store" }).catch(() => null);
+  if (!res || !res.ok) return null;
+  const data = await res.json().catch(() => null);
+  if (!data) return null;
+
+  // pump.fun API 返回的数据处理
+  const priceUsd = Number(data.usd_market_cap) / 1000000000; // 粗略估算价格 = 市值 / 总供应量(1B)
+  const marketCap = Number(data.usd_market_cap);
+  
+  return {
+    source: "pumpfun",
+    url: `https://pump.fun/coin/${addr}`,
+    pairAddress: "",
+    name: String(data.name || ""),
+    symbol: String(data.symbol || ""),
+    priceUsd: Number.isFinite(priceUsd) ? priceUsd : null,
+    priceNative: null, // pump.fun API 通常直接给 USD 市值
+    liquidityUsd: null,
+    volume24hUsd: null,
+    marketCap: Number.isFinite(marketCap) ? marketCap : null,
+    ts: nowMs(),
+  };
+}
+
 async function fetchDexScreenerSolTokenSnapshot(mint) {
   const addr = String(mint || "").trim();
   if (!isSolAddress(addr)) return null;
@@ -576,29 +604,33 @@ app.get("/health", (req, res) => jsonOk(res, { ok: true }));
 async function fetchSolTokenSnapshot(mint) {
   const addr = String(mint || SOL_WCT_MINT || "").trim();
   if (!isSolAddress(addr)) return null;
-  const [dex, totalSupply, holders, ts] = await Promise.all([
+  const [dex, pump, totalSupply, holders, ts] = await Promise.all([
     fetchDexScreenerSolTokenSnapshot(addr),
+    fetchPumpFunTokenSnapshot(addr),
     fetchSolTokenSupplyUi(addr),
     fetchSolscanHoldersCount(addr),
     Promise.resolve(nowMs()),
   ]);
 
-  const priceUsd = dex && typeof dex.priceUsd === "number" && Number.isFinite(dex.priceUsd) ? dex.priceUsd : null;
+  const snap = dex || pump;
+  if (!snap) return null;
+
+  const priceUsd = snap && typeof snap.priceUsd === "number" && Number.isFinite(snap.priceUsd) ? snap.priceUsd : null;
   const supply = typeof totalSupply === "number" && Number.isFinite(totalSupply) ? totalSupply : null;
-  const marketCapDex = dex && typeof dex.marketCap === "number" && Number.isFinite(dex.marketCap) ? dex.marketCap : null;
-  const marketCap = marketCapDex !== null ? marketCapDex : typeof priceUsd === "number" && typeof supply === "number" ? priceUsd * supply : null;
+  const marketCapSnap = snap && typeof snap.marketCap === "number" && Number.isFinite(snap.marketCap) ? snap.marketCap : null;
+  const marketCap = marketCapSnap !== null ? marketCapSnap : typeof priceUsd === "number" && typeof supply === "number" ? priceUsd * supply : null;
 
   return {
-    source: "backend-sol",
+    source: snap.source === "dexscreener" ? "backend-sol" : "backend-pump",
     mint: addr,
-    url: dex ? String(dex.url || "") : "",
-    pairAddress: dex ? String(dex.pairAddress || "") : "",
-    name: dex ? String(dex.name || "") : "",
-    symbol: dex ? String(dex.symbol || "") : "",
+    url: snap ? String(snap.url || "") : "",
+    pairAddress: snap ? String(snap.pairAddress || "") : "",
+    name: snap ? String(snap.name || "") : "",
+    symbol: snap ? String(snap.symbol || "") : "",
     priceUsd,
-    priceNative: dex && typeof dex.priceNative === "number" && Number.isFinite(dex.priceNative) ? dex.priceNative : null,
-    liquidityUsd: dex && typeof dex.liquidityUsd === "number" && Number.isFinite(dex.liquidityUsd) ? dex.liquidityUsd : null,
-    volume24hUsd: dex && typeof dex.volume24hUsd === "number" && Number.isFinite(dex.volume24hUsd) ? dex.volume24hUsd : null,
+    priceNative: snap && typeof snap.priceNative === "number" && Number.isFinite(snap.priceNative) ? snap.priceNative : null,
+    liquidityUsd: snap && typeof snap.liquidityUsd === "number" && Number.isFinite(snap.liquidityUsd) ? snap.liquidityUsd : null,
+    volume24hUsd: snap && typeof snap.volume24hUsd === "number" && Number.isFinite(snap.volume24hUsd) ? snap.volume24hUsd : null,
     marketCap: typeof marketCap === "number" && Number.isFinite(marketCap) ? marketCap : null,
     totalSupply: supply,
     holders: typeof holders === "number" && Number.isFinite(holders) ? holders : null,
