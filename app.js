@@ -79,27 +79,69 @@ const WCT_BONUS_TIER_10M = 10000000n;
 const MAX_SAFE_POINTS = 9007199254740991;
 const TRADING_FEE_RATE = 0.03;
 
-function getSolProvider() {
+function getSolProvider(type = "phantom") {
   const w = typeof window !== "undefined" ? window : null;
   if (!w) return null;
 
-  // 1. 优先检查 Phantom (通过 phantom 命名空间)
-  if (w.phantom?.solana?.isPhantom) return w.phantom.solana;
-
-  // 2. 检查全局 solana 注入
-  if (w.solana) {
-    // 处理多提供者
-    if (w.solana.providers?.length) {
-      return w.solana.providers.find(p => p.isPhantom) || w.solana.providers[0];
+  if (type === "phantom") {
+    // 优先 Phantom
+    if (w.phantom?.solana?.isPhantom) return w.phantom.solana;
+    if (w.solana?.isPhantom) return w.solana;
+    if (w.solana?.providers?.length) {
+      const p = w.solana.providers.find(x => x.isPhantom);
+      if (p) return p;
     }
-    return w.solana;
+  } else if (type === "okx") {
+    // OKX Wallet
+    if (w.okxwallet?.solana) return w.okxwallet.solana;
+    if (w.solana?.isOKXWallet) return w.solana;
+  } else if (type === "metamask") {
+    // MetaMask Solana Snap or similar
+    if (w.solana?.isMetaMask) return w.solana;
+    if (w.solana?.providers?.length) {
+      const p = w.solana.providers.find(x => x.isMetaMask);
+      if (p) return p;
+    }
   }
 
-  return null;
+  // Fallback to any detected solana provider
+  return w.phantom?.solana || w.solana;
 }
 
-async function connectWallet() {
-  const provider = getSolProvider();
+function openWalletModal() {
+  const modal = $("#walletModal");
+  if (modal) {
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+  }
+}
+
+function closeWalletModal() {
+  const modal = $("#walletModal");
+  if (modal) {
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+  }
+}
+
+function setupWalletModal() {
+  const modal = $("#walletModal");
+  if (!modal) return;
+  modal.addEventListener("click", (e) => {
+    if (e.target.closest('[data-close="wallet"]')) {
+      closeWalletModal();
+    }
+    const opt = e.target.closest(".walletOption");
+    if (opt) {
+      const type = opt.dataset.wallet;
+      closeWalletModal();
+      connectWallet(type);
+    }
+  });
+}
+
+async function connectWallet(type = "phantom") {
+  const provider = getSolProvider(type);
   
   if (!provider) {
     toast(t("toast.noWallet"));
@@ -107,13 +149,13 @@ async function connectWallet() {
   }
 
   try {
-    console.log("Connecting to Solana wallet...");
+    console.log(`Connecting to Solana wallet (${type})...`);
     
     // 如果已经授权，直接使用已有的公钥
     if (provider.isConnected && provider.publicKey) {
       console.log("Wallet already connected.");
     } else {
-      // 弹出 Phantom 授权窗口
+      // 弹出授权窗口
       await provider.connect();
     }
 
@@ -128,6 +170,7 @@ async function connectWallet() {
     state.wallet.connected = true;
     state.wallet.manualConnected = true;
     state.wallet.walletMenuOpen = false;
+    localStorage.setItem("wct_wallet_type", type);
 
     updateWalletUI();
     toast(t("toast.walletConnected"));
@@ -280,7 +323,8 @@ const I18N = {
     "social.open": "OPEN",
     "wallet.connect": "CONNECT WALLET",
     "wallet.disconnect": "DISCONNECT",
-    "toast.noWallet": "No wallet detected. Install MetaMask or a Web3 wallet.",
+    "wallet.selectTitle": "Connect Wallet",
+    "toast.noWallet": "Solana wallet not detected. Please install Phantom, OKX, or use MetaMask with Solana.",
     "toast.walletConnected": "Wallet connected.",
     "toast.walletDisconnected": "Wallet disconnected.",
     "toast.walletFailed": "Wallet connection failed.",
@@ -417,7 +461,8 @@ const I18N = {
     "social.open": "打开",
     "wallet.connect": "连接钱包",
     "wallet.disconnect": "断开连接",
-    "toast.noWallet": "未检测到钱包，请安装 MetaMask 或其他 Web3 钱包。",
+    "wallet.selectTitle": "选择钱包",
+    "toast.noWallet": "未检测到 Solana 钱包，请安装 Phantom、OKX 或在小狐狸中使用 Solana。",
     "toast.walletConnected": "钱包已连接。",
     "toast.walletDisconnected": "钱包已断开。",
     "toast.walletFailed": "连接失败。",
@@ -2039,7 +2084,8 @@ function updateWalletUI() {
 }
 
 async function tryRestoreWalletSession() {
-  const provider = getSolProvider();
+  const type = localStorage.getItem("wct_wallet_type") || "phantom";
+  const provider = getSolProvider(type);
   if (!provider) return;
   try {
     const res = await provider.connect({ onlyIfTrusted: true });
@@ -4200,6 +4246,7 @@ function boot() {
     updateWalletUI();
     hydrateRewardsFromAddress();
     setupWalletListeners();
+    setupWalletModal();
     tryRestoreWalletSession();
 
     const connectBtn = $("#connectWalletBtn");
@@ -4207,7 +4254,7 @@ function boot() {
       connectBtn.addEventListener("click", () => {
         const isConnected = !!(state.wallet.address && state.wallet.connected && state.wallet.manualConnected);
         if (!isConnected) {
-          connectWallet();
+          openWalletModal();
           return;
         }
         state.wallet.walletMenuOpen = !state.wallet.walletMenuOpen;

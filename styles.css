@@ -2046,6 +2046,33 @@ body[data-page="whitepaper"] .wpAllocNote{
 }
 .modal__title{font-weight:900;letter-spacing:.1em}
 .modal__body{padding:14px 14px 16px}
+.walletGrid {
+  display: grid;
+  gap: 12px;
+}
+.walletOption {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(20, 241, 149, 0.14);
+  background: rgba(9, 6, 18, 0.3);
+  color: white;
+  font-weight: 900;
+  text-align: left;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.walletOption:hover {
+  border-color: rgba(20, 241, 149, 0.45);
+  background: rgba(20, 241, 149, 0.08);
+}
+.walletOption__icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
 .rewardRow{
   display:flex;
   justify-content:space-between;
