@@ -1496,23 +1496,27 @@ async function backendSyncAll({ force } = {}) {
 }
 
 async function refreshOnchainTreasuryPool() {
-  const addr = state.rewards.treasuryAddress || getTreasuryAddress();
+  const addr = getTreasuryAddress(); // 始终获取最新的
   state.rewards.treasuryAddress = addr;
   if (!addr || !isSolAddress(addr)) {
     state.rewards.poolBnbOnchainWei = null;
     return;
   }
   const now = Date.now();
-  if (state.rewards.lastTreasurySyncMs && now - state.rewards.lastTreasurySyncMs < 15000) return;
+  // 缩短奖池刷新间隔，便于调试
+  if (state.rewards.lastTreasurySyncMs && now - state.rewards.lastTreasurySyncMs < 5000) return;
   state.rewards.lastTreasurySyncMs = now;
   try {
     const base = getBackendBaseUrl();
     if (!base) throw new Error("no_backend");
     const url = `${base}/v1/sol/pool?address=${encodeURIComponent(addr)}`;
+    console.log("Refreshing treasury pool balance for:", addr);
     const json = await fetchJsonWithCorsFallback(url);
     const lamports = typeof json?.lamports === "number" && Number.isFinite(json.lamports) ? BigInt(Math.max(0, Math.floor(json.lamports))) : null;
     state.rewards.poolBnbOnchainWei = lamports;
-  } catch {
+    renderRewards(); // 强制重绘
+  } catch (e) {
+    console.warn("Treasury refresh failed:", e);
     state.rewards.poolBnbOnchainWei = null;
   }
 }
@@ -1933,7 +1937,8 @@ async function tryRestoreWalletSession() {
 }
 
 async function connectWallet() {
-  const provider = getSolProvider();
+  const type = localStorage.getItem("wct_wallet_type") || "phantom";
+  const provider = getSolProvider(type);
   
   if (!provider) {
     toast(t("toast.noWallet"));
@@ -1943,15 +1948,13 @@ async function connectWallet() {
   try {
     console.log("Attempting robust connection...");
     
-    // 某些环境下 connect() 可能不返回 Promise 而是触发事件，这里做一个超时保护或强制等待
-    const connectPromise = provider.connect();
-    
-    // 如果 provider 已经处于 connected 状态，直接获取 pk
-    if (provider.isConnected && provider.publicKey) {
-      console.log("Wallet already connected, using existing public key.");
-    } else {
-      await connectPromise;
+    // 强制先断开旧连接，确保弹出钱包选择
+    if (provider.isConnected) {
+      try { await provider.disconnect(); } catch(e) {}
     }
+
+    // 重新连接，设置 onlyIfTrusted: false 强制弹出授权窗口
+    await provider.connect({ onlyIfTrusted: false });
 
     const connectedPk = provider.publicKey;
     
