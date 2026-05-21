@@ -1791,8 +1791,6 @@ function formatUnitsShort(value, decimals, maxFrac = 6) {
 
 async function fetchWalletBalances() {
   const addr = state.wallet.address;
-  const type = localStorage.getItem("wct_wallet_type") || "phantom";
-  const provider = getSolProvider(type);
   if (!addr) {
     setText("bnbBalance", "--");
     setText("wctBalance", "--");
@@ -1800,21 +1798,31 @@ async function fetchWalletBalances() {
     state.wallet.wctBalanceRaw = 0n;
     return;
   }
+  
   const now = Date.now();
-  if (state.wallet.lastBalanceSyncMs && now - state.wallet.lastBalanceSyncMs < 8000) return;
+  // 如果 3 秒内同步过且地址没变，则跳过
+  if (state.wallet.lastBalanceSyncMs && now - state.wallet.lastBalanceSyncMs < 3000) return;
   state.wallet.lastBalanceSyncMs = now;
 
   const base = getBackendBaseUrl();
   const mint = getWctMint();
   
-  // 1. 优先尝试通过后端统一获取 (后端会处理 RPC 聚合)
+  console.log("Fetching balances for:", addr);
+
+  // 1. 优先尝试通过后端统一获取
   if (base) {
     try {
       const url = `${base}/v1/sol/wallet?address=${encodeURIComponent(addr)}&mint=${encodeURIComponent(mint)}`;
       const json = await fetchJsonWithCorsFallback(url);
       
+      // 检查请求返回后，当前地址是否还是那个地址
+      if (state.wallet.address !== addr) return;
+
       const lamports = typeof json?.lamports === "number" ? BigInt(Math.floor(json.lamports)) : null;
-      if (lamports !== null) setText("bnbBalance", (Number(lamports) / 1e9).toFixed(4) + " SOL");
+      if (lamports !== null) {
+        const solVal = Number(lamports) / 1e9;
+        setText("bnbBalance", solVal.toFixed(4) + " SOL");
+      }
 
       const tokenRaw = json?.tokenRaw;
       const tokenDec = typeof json?.tokenDecimals === "number" ? json.tokenDecimals : 9;
@@ -1826,10 +1834,10 @@ async function fetchWalletBalances() {
         setText("wctBalance", formatted);
         setText("wctBalanceHero", formatted);
         updateWalletUI();
-        return; // 成功获取则返回
+        return; 
       }
     } catch (e) {
-      console.warn("Backend balance fetch failed, falling back to public RPC:", e);
+      console.warn("Backend balance fetch failed:", e);
     }
   }
 
@@ -1837,10 +1845,12 @@ async function fetchWalletBalances() {
   try {
     const rpc = "https://api.mainnet-beta.solana.com";
     const res = await rpcRequest(rpc, "getBalance", [addr]);
+    if (state.wallet.address !== addr) return;
     const sol = (Number(res || 0) / 1e9).toFixed(4);
     setText("bnbBalance", sol + " SOL");
   } catch (e) {
     console.warn("Public RPC SOL fetch failed:", e);
+    setText("bnbBalance", "0.0000 SOL"); // 失败时至少显示 0
   }
   
   updateWalletUI();
@@ -2011,23 +2021,37 @@ function setupWalletListeners() {
   const provider = getSolProvider();
   if (!provider || typeof provider.on !== "function") return;
   const handleAddress = (pk) => {
+    const oldAddr = state.wallet.address;
     const addr = pk ? String(pk.toString()) : "";
+    
+    if (addr === oldAddr) return; // 无变化则跳过
+
+    console.log("Wallet address changed from", oldAddr, "to", addr);
     state.wallet.address = addr || null;
     state.wallet.connected = !!state.wallet.address;
-    if (!state.wallet.address) {
+    
+    // 如果地址变为非空，强制标记为 manualConnected，确保 UI 更新
+    if (state.wallet.address) {
+      state.wallet.manualConnected = true;
+    } else {
       state.wallet.manualConnected = false;
       state.wallet.walletMenuOpen = false;
-    } else if (!state.wallet.manualConnected) {
-      state.wallet.walletMenuOpen = false;
     }
+    
+    // 重置余额同步标志，强制立即刷新新钱包的余额
     state.wallet.wctDecimals = null;
     state.wallet.wctBalanceRaw = 0n;
     state.wallet.lastBalanceSyncMs = 0;
+    
     initBackendState();
     hydrateRewardsFromAddress();
     updateWalletUI();
-    fetchWalletBalances();
-    if (state.wallet.address && state.backend.enabled) backendSyncAll({ force: true });
+    
+    // 异步触发余额刷新
+    if (state.wallet.address) {
+      fetchWalletBalances();
+      if (state.backend.enabled) backendSyncAll({ force: true });
+    }
   };
 
   provider.on("connect", (pk) => handleAddress(pk || provider.publicKey));
@@ -3663,32 +3687,57 @@ function settleMatchIfPossible(matchId) {
 }
 
 async function placePrediction(matchId, pick) {
-  if (!state.wallet.address) {
-    toast(t("toast.connectToSubmit"));
-    return;
-  }
-  if (!getSolProvider()) {
+  const provider = getSolProvider();
+  if (!provider) {
     toast(t("toast.noWallet"));
     return;
   }
+  
+  // 确保使用当前钱包插件中的最新地址，而不是 state 中的旧值
+  const currentPk = provider.publicKey;
+  if (!currentPk) {
+    toast(t("toast.connectToSubmit"));
+    return;
+  }
+  const addr = String(currentPk.toString());
+  
+  // 如果 state 里的地址不对，立即同步
+  if (state.wallet.address !== addr) {
+    console.log("Syncing stale address before prediction:", state.wallet.address, "->", addr);
+    state.wallet.address = addr;
+    state.wallet.connected = true;
+    state.wallet.manualConnected = true;
+    initBackendState();
+    updateWalletUI();
+  }
+
   if (!state.schedule.loaded) return;
   const match = state.schedule.matches.find((m) => m.id === matchId);
   if (!match) return;
-  if (!isBetOpen(match, Date.now())) {
+  
+  const now = Date.now();
+  if (!isBetOpen(match, now)) {
     toast(t("toast.betClosed"));
     return;
   }
-  const addr = normAddress(state.wallet.address);
+
+  const normalizedAddr = normAddress(addr);
+
   if (state.backend.enabled) {
     const ok = await backendEnsureLogin({ interactive: true });
     if (!ok) return;
     try {
-      await backendFetch("/v1/predictions", { method: "POST", body: { matchId, pick } });
-      bumpTodayPredictionCount(addr);
+      // 这里的 backendFetch 会带上基于当前 addr 的 Authorization Token
+      await backendFetch("/v1/predictions", { 
+        method: "POST", 
+        body: { matchId, pick, address: addr } // 额外传 address 供后端双重校验
+      });
+      bumpTodayPredictionCount(normalizedAddr);
       await backendSyncAll({ force: true });
       toast(t("toast.predSubmitted", { pick: pickLabelForMatch(match, pick) }));
       return;
     } catch (e) {
+      // ... 错误处理逻辑保持不变 ...
       const msg = String(e?.message || "");
       const status = Number(e?.status || 0);
       if (msg === "already_bet") {
@@ -3713,35 +3762,36 @@ async function placePrediction(matchId, pick) {
       return;
     }
   }
+  
+  // 本地存储模式逻辑 (Fallback)
   const pool = getPool(matchId);
-  if (pool.participants && pool.participants[addr]) {
+  if (pool.participants && pool.participants[normalizedAddr]) {
     toast(t("toast.alreadyBet"));
     return;
   }
 
-  if (!state.wallet.wctDecimals || !state.wallet.lastBalanceSyncMs || Date.now() - state.wallet.lastBalanceSyncMs > 60000) {
-    await fetchWalletBalances();
-  }
+  // 强制拉取最新余额以校验限制
+  await fetchWalletBalances();
 
   const wholeWct = getWctWholeBalance();
   const limit = getDailyPredictionLimit(wholeWct);
-  const used = getTodayPredictionCount(addr);
+  const used = getTodayPredictionCount(normalizedAddr);
   if (used >= limit) {
     toast(t("toast.dailyLimit", { limit, holdLimit: DAILY_PRED_LIMIT_HOLD }));
     return;
   }
 
   const ts = Date.now();
-  pool.participants[addr] = { pick, ts };
+  pool.participants[normalizedAddr] = { pick, ts };
   const c = pool.counts && typeof pool.counts === "object" ? pool.counts : { HOME: 0, DRAW: 0, AWAY: 0 };
   if (pick === "HOME" || pick === "DRAW" || pick === "AWAY") c[pick] = Math.max(0, Math.floor(Number(c[pick] || 0))) + 1;
   pool.counts = c;
   pool.participantsCount = Object.keys(pool.participants || {}).length;
   setPool(matchId, pool);
 
-  trackLeaderboardAddress(addr);
-  bumpTodayPredictionCount(addr);
-  setUserBet(addr, matchId, {
+  trackLeaderboardAddress(normalizedAddr);
+  bumpTodayPredictionCount(normalizedAddr);
+  setUserBet(normalizedAddr, matchId, {
     matchId,
     pick,
     ts,
@@ -3760,7 +3810,6 @@ async function placePrediction(matchId, pick) {
   });
   renderMyBets();
   renderLeaderboard();
-  updateWalletUI();
   toast(t("toast.predSubmitted", { pick: pickLabelForMatch(match, pick) }));
 }
 
