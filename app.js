@@ -175,7 +175,7 @@ const I18N = {
     "rewards.poolTitle": "REWARDS POOL",
     "rewards.totalRewards": "POOL (SOL)",
     "rewards.viewRewards": "VIEW REWARDS",
-    "rewards.rulesHtml": "<b>Prize rules</b>: Top 5 share the prize pool — #1 40%, #2 20%, #3 10%, #4 5%, #5 5%. <b>Tax plan</b>: 80% of trading tax is used for rewards distribution. Remaining 20%: 10% buyback & burn, 10% liquidity. <a href=\"./whitepaper.html\">Details</a>.",
+    "rewards.rulesHtml": "<b>Prize rules</b>: Top 5 share the prize pool — #1 40%, #2 20%, #3 10%, #4 5%, #5 5%. <b>Tax plan</b>: 90% of trading tax is used for rewards distribution. Remaining 10% for marketing activities. <a href=\"./whitepaper.html\">Details</a>.",
     "rewards.poolEmpty": "No SOL in pool yet",
     "rewards.poolLoading": "Syncing on-chain pool…",
     "rewards.modalTitle": "Your Rewards",
@@ -314,7 +314,7 @@ const I18N = {
     "rewards.poolTitle": "奖励池",
     "rewards.totalRewards": "奖池（SOL）",
     "rewards.viewRewards": "查看奖励",
-    "rewards.rulesHtml": "<b>获奖机制</b>：前 5 名瓜分奖池——第 1 名 40%，第 2 名 20%，第 3 名 10%，第 4/5 名各 5%。<b>税费规划</b>：交易税费的 80% 用于发放奖励；剩余 20%（10% 回购销毁、10% 流动性）。<a href=\"./whitepaper.html\">查看详情</a>。",
+    "rewards.rulesHtml": "<b>获奖机制</b>：前 5 名瓜分奖池——第 1 名 40%，第 2 名 20%，第 3 名 10%，第 4/5 名各 5%。<b>税费规划</b>：交易税费的 90% 用于发放奖励；剩余 10% 用于营销活动。<a href=\"./whitepaper.html\">查看详情</a>。",
     "rewards.poolEmpty": "奖池暂无 SOL",
     "rewards.poolLoading": "奖池余额同步中…",
     "rewards.modalTitle": "我的奖励",
@@ -2326,7 +2326,7 @@ function drawChart() {
     ctx.lineTo(pad.l + w, y);
     ctx.stroke();
   }
-  ctx.strokeStyle = "rgba(180,92,255,0.06)";
+  ctx.strokeStyle = "rgba(0,255,163,0.06)";
   for (let i = 0; i <= 6; i++) {
     const x = pad.l + (w * i) / 6;
     ctx.beginPath();
@@ -2345,8 +2345,8 @@ function drawChart() {
     const x = pad.l + i * barW;
     const y = pad.t + h - bh;
     const grad = ctx.createLinearGradient(0, y, 0, pad.t + h);
-    grad.addColorStop(0, "rgba(180,92,255,0.55)");
-    grad.addColorStop(1, "rgba(122,43,255,0.03)");
+    grad.addColorStop(0, "rgba(0,255,163,0.55)");
+    grad.addColorStop(1, "rgba(20,241,149,0.03)");
     ctx.fillStyle = grad;
     const bw = barW * 0.56;
     const bx = x + barW * 0.22;
@@ -2360,21 +2360,21 @@ function drawChart() {
     ctx.lineTo(bx + bw, y + bh);
     ctx.closePath();
     ctx.save();
-    ctx.shadowColor = "rgba(180,92,255,0.22)";
+    ctx.shadowColor = "rgba(0,255,163,0.22)";
     ctx.shadowBlur = 12;
     ctx.fill();
     ctx.restore();
   }
 
   const lineGrad = ctx.createLinearGradient(pad.l, pad.t, pad.l + w, pad.t);
-  lineGrad.addColorStop(0, "rgba(122,43,255,1)");
-  lineGrad.addColorStop(1, "rgba(180,92,255,1)");
+  lineGrad.addColorStop(0, "rgba(20,241,149,1)");
+  lineGrad.addColorStop(1, "rgba(0,255,163,1)");
 
   ctx.save();
   const areaGrad = ctx.createLinearGradient(0, pad.t, 0, pad.t + h);
-  areaGrad.addColorStop(0, "rgba(180,92,255,0.20)");
-  areaGrad.addColorStop(0.65, "rgba(122,43,255,0.06)");
-  areaGrad.addColorStop(1, "rgba(122,43,255,0.01)");
+  areaGrad.addColorStop(0, "rgba(0,255,163,0.20)");
+  areaGrad.addColorStop(0.65, "rgba(20,241,149,0.06)");
+  areaGrad.addColorStop(1, "rgba(20,241,149,0.01)");
   ctx.fillStyle = areaGrad;
   ctx.beginPath();
   for (let i = 0; i < points.length; i++) {
@@ -2391,10 +2391,10 @@ function drawChart() {
   ctx.save();
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
-  ctx.shadowColor = "rgba(180,92,255,0.45)";
+  ctx.shadowColor = "rgba(0,255,163,0.45)";
   ctx.shadowBlur = 26;
   ctx.lineWidth = 5.2;
-  ctx.strokeStyle = "rgba(180,92,255,0.18)";
+  ctx.strokeStyle = "rgba(0,255,163,0.18)";
   ctx.beginPath();
   for (let i = 0; i < points.length; i++) {
     const p = toXY(i, points[i]);
@@ -2407,7 +2407,7 @@ function drawChart() {
   ctx.save();
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
-  ctx.shadowColor = "rgba(180,92,255,0.55)";
+  ctx.shadowColor = "rgba(0,255,163,0.55)";
   ctx.shadowBlur = 18;
   ctx.lineWidth = 2.6;
   ctx.strokeStyle = lineGrad;
@@ -2422,8 +2422,8 @@ function drawChart() {
 
   const markerStep = Math.max(6, Math.floor(points.length / 34));
   ctx.save();
-  ctx.fillStyle = "rgba(180,92,255,0.75)";
-  ctx.shadowColor = "rgba(180,92,255,0.5)";
+  ctx.fillStyle = "rgba(0,255,163,0.75)";
+  ctx.shadowColor = "rgba(0,255,163,0.5)";
   ctx.shadowBlur = 10;
   for (let i = markerStep; i < points.length - 1; i += markerStep) {
     const p = toXY(i, points[i]);
@@ -2435,9 +2435,9 @@ function drawChart() {
 
   const lastPt = toXY(points.length - 1, points[points.length - 1]);
   ctx.save();
-  ctx.shadowColor = "rgba(180,92,255,0.8)";
+  ctx.shadowColor = "rgba(0,255,163,0.8)";
   ctx.shadowBlur = 22;
-  ctx.strokeStyle = "rgba(180,92,255,0.95)";
+  ctx.strokeStyle = "rgba(0,255,163,0.95)";
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(lastPt.x, lastPt.y, 6.2, 0, Math.PI * 2);
@@ -2565,14 +2565,14 @@ function drawOverview() {
   };
 
   const lineGrad = ctx.createLinearGradient(pad.l, pad.t, pad.l + w, pad.t);
-  lineGrad.addColorStop(0, "rgba(122,43,255,1)");
-  lineGrad.addColorStop(1, "rgba(180,92,255,1)");
+  lineGrad.addColorStop(0, "rgba(20,241,149,1)");
+  lineGrad.addColorStop(1, "rgba(0,255,163,1)");
 
   ctx.save();
   const areaGrad = ctx.createLinearGradient(0, pad.t, 0, pad.t + h);
-  areaGrad.addColorStop(0, "rgba(180,92,255,0.16)");
-  areaGrad.addColorStop(0.65, "rgba(122,43,255,0.05)");
-  areaGrad.addColorStop(1, "rgba(122,43,255,0.01)");
+  areaGrad.addColorStop(0, "rgba(0,255,163,0.16)");
+  areaGrad.addColorStop(0.65, "rgba(20,241,149,0.05)");
+  areaGrad.addColorStop(1, "rgba(20,241,149,0.01)");
   ctx.fillStyle = areaGrad;
   ctx.beginPath();
   for (let i = 0; i < points.length; i++) {
@@ -2589,7 +2589,7 @@ function drawOverview() {
   ctx.save();
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
-  ctx.shadowColor = "rgba(180,92,255,0.55)";
+  ctx.shadowColor = "rgba(0,255,163,0.55)";
   ctx.shadowBlur = 16;
   ctx.lineWidth = 2.2;
   ctx.strokeStyle = lineGrad;
