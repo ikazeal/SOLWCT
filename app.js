@@ -211,6 +211,21 @@ function utf8ToHex(str) {
   }
 }
 
+const TEAM_MAP = {
+  "墨西哥": "MEX", "南非": "RSA", "韩国": "KOR", "捷克": "CZE", "加拿大": "CAN", "波黑": "BIH", "美国": "USA", "巴拉圭": "PAR",
+  "卡塔尔": "QAT", "瑞士": "SUI", "巴西": "BRA", "摩洛哥": "MAR", "海地": "HAI", "苏格兰": "SCO", "澳大利亚": "AUS", "土耳其": "TUR",
+  "德国": "GER", "库拉索": "CUW", "荷兰": "NED", "日本": "JPN", "科特迪瓦": "CIV", "厄瓜多尔": "ECU", "瑞典": "SWE", "突尼斯": "TUN",
+  "西班牙": "ESP", "佛得角": "CPV", "比利时": "BEL", "埃及": "EGY", "沙特阿拉伯": "KSA", "乌拉圭": "URU", "伊朗": "IRN", "新西兰": "NZL",
+  "法国": "FRA", "塞内加尔": "SEN", "伊拉克": "IRQ", "挪威": "NOR", "阿根廷": "ARG", "阿尔及利亚": "ALG", "奥地利": "AUT", "约旦": "JOR",
+  "葡萄牙": "POR", "刚果民主共和国": "COD", "英格兰": "ENG", "克罗地亚": "CRO", "加纳": "GHA", "巴拿马": "PAN", "乌兹别克斯坦": "UZB", "哥伦比亚": "COL",
+  "意大利": "ITA", "波兰": "POL", "威尔士": "WAL", "丹麦": "DEN", "塞尔维亚": "SRB", "喀麦隆": "CMR"
+};
+
+function tTeam(name) {
+  const n = String(name || "").trim();
+  return TEAM_MAP[n] || n;
+}
+
 const I18N = {
   en: {
     "doc.title": "World Cup AI Prediction Market",
@@ -352,144 +367,6 @@ const I18N = {
     "lang.btn.en": "EN",
     "lang.btn.zh": "中文",
   },
-  zh: {
-    "doc.title": "世界杯AI预测市场",
-    "nav.home": "首页",
-    "nav.tokenomics": "代币经济",
-    "nav.matches": "赛程",
-    "nav.prediction": "预测",
-    "wallet.myPredictions": "我的预测",
-    "nav.whitepaper": "白皮书",
-    "nav.leaderboard": "排行榜",
-    "nav.rewards": "奖励",
-    "nav.roadmap": "路线图",
-    "hero.kicker": "",
-    "hero.desc": "首个为世界杯打造的 世界杯AI预测市场。<br />预测 · 对战 · 赢取 SOL 奖励。",
-    "hero.buyNow": "立即购买",
-    "hero.joinPrediction": "参与预测",
-    "overview.title": "代币概览",
-    "overview.contract": "合约地址",
-    "overview.network": "网络",
-    "overview.bnb": "SOLANA",
-    "overview.balances": "钱包余额",
-    "overview.bnbBalance": "SOL",
-    "overview.wctBalance": "WCT",
-    "overview.holdBonusPoints": "",
-    "overview.tokenPrice": "代币价格",
-    "overview.marketCap": "市值",
-    "overview.volume24h": "24小时成交量",
-    "overview.holders": "持有人",
-    "overview.totalSupply": "总供应量",
-    "overview.copy": "复制合约地址",
-    "chart.price": "价格 (WCT)",
-    "chart.marketCap": "市值",
-    "chart.volume24h": "24小时成交量",
-    "chart.liquidity": "流动性",
-    "dash.currentPrice": "当前价格",
-    "matches.title": "即将开始的比赛",
-    "matches.viewAllCta": "查看全部赛程",
-    "matches.allTitle": "全部赛程",
-    "matches.backHome": "返回",
-    "matches.loading": "赛程加载中…",
-    "matches.loadFailed": "赛程加载失败。",
-    "matches.hint": "按阶段筛选 · 按日期查看",
-    "matches.groupStage": "小组赛",
-    "matches.predictNow": "立即预测",
-    "matches.predictTitle": "比赛预测",
-    "matches.bettors": "支持人数",
-    "matches.lead": "支持领先",
-    "matches.daysLeft2": "剩余 2 天",
-    "stage.all": "全部",
-    "stage.group": "小组赛",
-    "stage.r32": "1/16决赛",
-    "stage.r16": "1/8决赛",
-    "stage.qf": "1/4决赛",
-    "stage.sf": "半决赛",
-    "stage.third": "季军赛",
-    "stage.final": "总决赛",
-    "status.upcoming": "未开始",
-    "status.live": "进行中",
-    "status.finished": "已结束",
-    "time.days": "天",
-    "time.hours": "时",
-    "time.mins": "分",
-    "time.secs": "秒",
-    "common.viewAll": "查看全部",
-    "leaderboard.title": "预测排行榜",
-    "leaderboard.allTitle": "预测排行榜",
-    "leaderboard.hintTop100": "最多展示前 100 个地址",
-    "leaderboard.empty": "暂无排行数据。",
-    "rewards.poolTitle": "奖励池",
-    "rewards.totalRewards": "奖池（SOL）",
-    "rewards.viewRewards": "查看奖励",
-    "rewards.rulesHtml": "<b>获奖机制</b>：前 5 名瓜分奖池——第 1 名 40%，第 2 名 20%，第 3 名 10%，第 4/5 名各 5%。<b>税费规划</b>：交易税费的 90% 用于发放奖励；剩余 10% 用于营销活动。<a href=\"./whitepaper.html\">查看详情</a>。",
-    "rewards.poolEmpty": "奖池暂无 SOL",
-    "rewards.poolLoading": "奖池余额同步中…",
-    "rewards.modalTitle": "我的奖励",
-    "rewards.available": "可领取",
-    "rewards.claimed": "已领取",
-    "rewards.claim": "领取",
-    "rewards.hintDisconnected": "连接钱包后可领取奖励。",
-    "rewards.hintConnected": "奖励会在预测结算后更新。",
-    "prediction.title": "预测",
-    "prediction.submit": "提交",
-    "prediction.draw": "平局",
-    "prediction.betPoints": "",
-    "prediction.pool": "奖池",
-    "prediction.participants": "人数",
-    "prediction.splitTitle": "支持比例",
-    "prediction.bettors": "人数",
-    "prediction.supportRate": "支持率",
-    "prediction.mostBettors": "最多",
-    "prediction.hintDisconnected": "连接钱包后可提交预测。",
-    "prediction.hintConnected": "提交预测后参与胜率排行榜。",
-    "prediction.limitBoost": "今日剩余 {left}/{limit} · 持币奖励加成 {boost}X",
-    "points.label": "",
-    "bets.title": "我的预测",
-    "bets.hintDisconnected": "连接钱包后可查看预测记录。",
-    "bets.hintConnected": "暂无预测记录，去下方进行预测。",
-    "bets.empty": "暂无预测记录。",
-    "bets.used": "使用",
-    "bets.bonus": "额外",
-    "bets.base": "基础",
-    "bets.goMatch": "前往",
-    "bets.win": "赢",
-    "bets.lose": "输",
-    "roadmap.title": "路线图",
-    "roadmap.copy": "启动 · 上线交易所 · 预测赛季 · 奖励 · 社区",
-    "social.follow": "关注我们",
-    "social.open": "打开",
-    "wallet.connect": "连接钱包",
-    "wallet.disconnect": "断开连接",
-    "wallet.selectTitle": "选择钱包",
-    "toast.noWallet": "未检测到 Solana 钱包，请安装 Phantom、OKX 或在小狐狸中使用 Solana。",
-    "toast.walletConnected": "钱包已连接。",
-    "toast.walletDisconnected": "钱包已断开。",
-    "toast.walletFailed": "连接失败。",
-    "toast.walletRejected": "用户取消连接。",
-    "toast.backendUnavailable": "后端不可用，请稍后重试。",
-    "toast.backendLoginFailed": "后端登录失败，请重试。",
-    "toast.backendBetFailed": "提交失败，请重试。",
-    "toast.networkAddRejected": "已取消添加网络。",
-    "toast.networkSwitchRejected": "已取消切换网络。",
-    "toast.switchToBsc": "请切换到 BNB 链以使用完整功能。",
-    "toast.contractCopied": "合约地址已复制。",
-    "toast.copyFailed": "复制失败。",
-    "toast.connectToSubmit": "请先连接钱包再提交预测。",
-    "toast.predSubmitted": "预测已提交：{pick}",
-    "toast.betPlaced": "",
-    "toast.betRange": "",
-    "toast.betClosed": "比赛开始前 5 分钟停止预测。",
-    "toast.insufficientPoints": "",
-    "toast.alreadyBet": "这场比赛你已经提交过预测。",
-    "toast.dailyLimit": "今日预测次数已用完：{limit}次/天。持有 ≥100,000 WCT 可提升至 {holdLimit}次/天。",
-    "toast.connectToClaim": "请先连接钱包再领取奖励。",
-    "toast.noRewards": "暂时没有可领取奖励。",
-    "toast.rewardsClaimed": "奖励已领取。",
-    "chart.deltaFormat": "{sign}{pct}%（{range}）",
-    "lang.btn.en": "EN",
-    "lang.btn.zh": "中文",
-  },
 };
 
 function $(sel, root = document) {
@@ -512,13 +389,10 @@ function t(key, vars = {}) {
 }
 
 function applyTranslations() {
-  document.documentElement.lang = state.lang === "zh" ? "zh-CN" : "en";
+  document.documentElement.lang = "en";
   const page = document.body ? document.body.getAttribute("data-page") : null;
   const suffix = page === "whitepaper" ? t("nav.whitepaper") : page === "matches" ? t("nav.matches") : null;
   document.title = suffix ? `${t("doc.title")} - ${suffix}` : t("doc.title");
-
-  const langLabel = document.getElementById("langBtnLabel");
-  if (langLabel) langLabel.textContent = state.lang === "en" ? t("lang.btn.zh") : t("lang.btn.en");
 
   $all("[data-i18n]").forEach((el) => {
     const key = el.getAttribute("data-i18n");
@@ -538,15 +412,11 @@ function applyTranslations() {
 }
 
 function getInitialLang() {
-  const saved = localStorage.getItem(LANG_STORAGE_KEY);
-  if (saved === "en" || saved === "zh") return saved;
-  const nav = (navigator.language || "").toLowerCase();
-  return nav.startsWith("zh") ? "zh" : "en";
+  return "en";
 }
 
 function setLang(next) {
-  state.lang = next === "zh" ? "zh" : "en";
-  localStorage.setItem(LANG_STORAGE_KEY, state.lang);
+  state.lang = "en";
   applyTranslations();
   updateWalletUI();
   renderRewards();
@@ -3010,14 +2880,14 @@ function renderMatchCard(match) {
           <span class="flag" style="background-image:${homeGrad}" aria-hidden="true">
             <img class="flag__img" src="${homeLogo}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'"/>
           </span>
-          <div class="team__code">${match.home}</div>
+          <div class="team__code">${tTeam(match.home)}</div>
         </div>
         <div class="vs">VS</div>
         <div class="team">
           <span class="flag" style="background-image:${awayGrad}" aria-hidden="true">
             <img class="flag__img" src="${awayLogo}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'"/>
           </span>
-          <div class="team__code">${match.away}</div>
+          <div class="team__code">${tTeam(match.away)}</div>
         </div>
       </div>
       <div class="matchCard__countdown">
@@ -3164,7 +3034,7 @@ function renderPredictionCard(match) {
   return `
     <div class="predPick" data-kickoff="${match.kickoffIso}" data-match-id="${match.id}">
       <div class="predPick__head">
-        <div class="predPick__title">${match.home} <span class="predPick__vs">VS</span> ${match.away}</div>
+        <div class="predPick__title">${tTeam(match.home)} <span class="predPick__vs">VS</span> ${tTeam(match.away)}</div>
         <div class="predPick__meta">
           <span class="predPick__when">${formatWhen(match)} · ${stageLabel(match.stage)}</span>
           <span class="predPick__countdown" data-countdown></span>
@@ -3175,19 +3045,19 @@ function renderPredictionCard(match) {
           <span class="flag flag--sm" style="background-image:${homeGrad}" aria-hidden="true">
             <img class="flag__img" src="${homeLogo}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'"/>
           </span>
-          <span class="predTeam__name">${match.home}</span>
+          <span class="predTeam__name">${tTeam(match.home)}</span>
         </span>
         <span class="predTeam">
           <span class="flag flag--sm" style="background-image:${awayGrad}" aria-hidden="true">
             <img class="flag__img" src="${awayLogo}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'"/>
           </span>
-          <span class="predTeam__name">${match.away}</span>
+          <span class="predTeam__name">${tTeam(match.away)}</span>
         </span>
       </div>
       <div class="seg ${disabled ? "is-disabled" : ""}" role="radiogroup" aria-label="Prediction">
-        <button class="seg__btn is-active" type="button" data-pick="HOME" ${disabled ? "disabled" : ""}>${match.home}</button>
+        <button class="seg__btn is-active" type="button" data-pick="HOME" ${disabled ? "disabled" : ""}>${tTeam(match.home)}</button>
         <button class="seg__btn" type="button" data-pick="DRAW" ${disabled ? "disabled" : ""}>${t("prediction.draw")}</button>
-        <button class="seg__btn" type="button" data-pick="AWAY" ${disabled ? "disabled" : ""}>${match.away}</button>
+        <button class="seg__btn" type="button" data-pick="AWAY" ${disabled ? "disabled" : ""}>${tTeam(match.away)}</button>
       </div>
       <div class="predPoolRow">
         <span class="predPoolRow__item"><span class="predPoolRow__k" data-i18n="prediction.participants">${t("prediction.participants")}</span> <span class="predPoolRow__v">${formatPts(participantsCount)}</span></span>
@@ -3201,7 +3071,7 @@ function renderPredictionCard(match) {
           </span>
         </div>
         <div class="predSplitRow ${leader === "HOME" ? "is-lead" : ""}">
-          <div class="predSplitRow__name">${match.home}${leader === "HOME" ? ` <span class="predSplitTag">${t("prediction.mostBettors")}</span>` : ""}</div>
+          <div class="predSplitRow__name">${tTeam(match.home)}${leader === "HOME" ? ` <span class="predSplitTag">${t("prediction.mostBettors")}</span>` : ""}</div>
           <div class="predSplitRow__bar"><span class="predSplitRow__fill" style="width:${pct(counts.HOME, totalVotes).toFixed(2)}%"></span></div>
           <div class="predSplitRow__meta"><span class="predSplitRow__num">${formatPts(counts.HOME)}</span><span class="predSplitRow__ratio">${pct(counts.HOME, totalVotes).toFixed(0)}%</span></div>
         </div>
@@ -3211,7 +3081,7 @@ function renderPredictionCard(match) {
           <div class="predSplitRow__meta"><span class="predSplitRow__num">${formatPts(counts.DRAW)}</span><span class="predSplitRow__ratio">${pct(counts.DRAW, totalVotes).toFixed(0)}%</span></div>
         </div>
         <div class="predSplitRow ${leader === "AWAY" ? "is-lead" : ""}">
-          <div class="predSplitRow__name">${match.away}${leader === "AWAY" ? ` <span class="predSplitTag">${t("prediction.mostBettors")}</span>` : ""}</div>
+          <div class="predSplitRow__name">${tTeam(match.away)}${leader === "AWAY" ? ` <span class="predSplitTag">${t("prediction.mostBettors")}</span>` : ""}</div>
           <div class="predSplitRow__bar"><span class="predSplitRow__fill" style="width:${pct(counts.AWAY, totalVotes).toFixed(2)}%"></span></div>
           <div class="predSplitRow__meta"><span class="predSplitRow__num">${formatPts(counts.AWAY)}</span><span class="predSplitRow__ratio">${pct(counts.AWAY, totalVotes).toFixed(0)}%</span></div>
         </div>
@@ -3248,8 +3118,8 @@ function renderPredictionMatches({ forceMatchId } = {}) {
 }
 
 function pickLabelForMatch(match, pick) {
-  if (pick === "HOME") return match.home;
-  if (pick === "AWAY") return match.away;
+  if (pick === "HOME") return tTeam(match.home);
+  if (pick === "AWAY") return tTeam(match.away);
   if (pick === "DRAW") return t("prediction.draw");
   return String(pick || "");
 }
@@ -3293,7 +3163,7 @@ function renderMyBets() {
       return { kickoffMs: match.kickoffMs, html: `
         <div class="myBetRow">
           <div class="myBetRow__main">
-            <div class="myBetRow__title">${match.home} VS ${match.away}</div>
+            <div class="myBetRow__title">${tTeam(match.home)} VS ${tTeam(match.away)}</div>
             <div class="myBetRow__sub">
               <span class="${tag.cls}">${tag.text}</span>
               <span class="myBetTag">${formatWhen(match)}</span>
@@ -3362,7 +3232,7 @@ function renderAllMatches() {
               else if (p === "AWAY") awayBettors += 1;
             });
           }
-          const leadCountry = homeBettors === awayBettors ? "--" : homeBettors > awayBettors ? m.home : m.away;
+          const leadCountry = homeBettors === awayBettors ? "--" : homeBettors > awayBettors ? tTeam(m.home) : tTeam(m.away);
           return `
             <div class="allMatchRow" data-kickoff="${m.kickoffIso}" data-match-id="${m.id}">
               <div class="allMatchRow__time">${m.time}</div>
@@ -3371,14 +3241,14 @@ function renderAllMatches() {
                   <span class="flag flag--sm" style="background-image:${flagGradient(m.home)}" aria-hidden="true">
                     <img class="flag__img" src="${teamLogoUrl(m.home)}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'"/>
                   </span>
-                  <span class="allMatchRow__teamName">${m.home}</span>
+                  <span class="allMatchRow__teamName">${tTeam(m.home)}</span>
                 </span>
                 <span class="allMatchRow__vs">VS</span>
                 <span class="allMatchRow__team">
                   <span class="flag flag--sm" style="background-image:${flagGradient(m.away)}" aria-hidden="true">
                     <img class="flag__img" src="${teamLogoUrl(m.away)}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'"/>
                   </span>
-                  <span class="allMatchRow__teamName">${m.away}</span>
+                  <span class="allMatchRow__teamName">${tTeam(m.away)}</span>
                 </span>
               </div>
               <div class="allMatchRow__sub">
@@ -4132,16 +4002,7 @@ function boot() {
       updateWalletUI();
     });
 
-    const langBtn = $("#langToggleBtn");
-    if (langBtn) {
-      langBtn.addEventListener("click", () => {
-        setLang(state.lang === "en" ? "zh" : "en");
-        setupStageTabs();
-        renderUpcomingMatches();
-        renderPredictionMatches();
-        renderAllMatches();
-      });
-    }
+    window.__WCT_BOOTED = true;
 
     const page = document.body ? document.body.getAttribute("data-page") : null;
     const isMatchesPage = page === "matches";
@@ -4177,13 +4038,11 @@ function boot() {
           startScheduleTicker();
         });
     }
-
-    window.__WCT_BOOTED = true;
   } catch {
     const connectBtn = $("#connectWalletBtn");
     if (connectBtn) connectBtn.addEventListener("click", connectWallet);
     try {
-      window.alert("页面初始化失败，请刷新后重试");
+      window.alert("Initialization failed. Please refresh and try again.");
     } catch {
     }
   }
