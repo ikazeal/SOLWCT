@@ -1132,9 +1132,9 @@ function dailyPredKey(addr) {
   const a = normAddress(addr);
   if (!a) return null;
   const d = new Date();
-  const yyyy = String(d.getFullYear());
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
+  const yyyy = String(d.getUTCFullYear());
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
   return `wct_pred_day_${a}_${yyyy}${mm}${dd}`;
 }
 
@@ -4046,114 +4046,6 @@ function setupCoin3d() {
   host.addEventListener("pointerleave", reset);
   host.addEventListener("pointerdown", setFromEvent);
   reset();
-}
-
-async function backendSyncAll(opts = {}) {
-  // Sync all backend data
-}
-
-function initBackendState() {
-  // Initialize backend state
-}
-
-function backendStartStream() {
-  // Start backend stream
-}
-
-async function backendEnsureLogin() {
-  // Ensure backend login
-  return false;
-}
-
-async function backendFetch() {
-  // Fetch from backend
-}
-
-function trackLeaderboardAddress() {
-  // Track address for leaderboard
-}
-
-function renderLeaderboard() {
-  // Render leaderboard
-}
-
-function formatUnitsShort() {
-  // Format units
-  return "0.00";
-}
-
-async function refreshOnchainTreasuryPool() {
-  // Refresh onchain treasury pool
-}
-
-function getInitialLang() {
-  return localStorage.getItem("wct_lang") || "zh";
-}
-
-function updateContractUI() {
-  // Update contract UI
-}
-
-function setupCopyContract() {
-  // Setup copy contract
-}
-
-function setRange() {
-  // Set range
-}
-
-function setupRangeTabs() {
-  // Setup range tabs
-}
-
-function drawOverview() {
-  // Draw overview
-}
-
-function drawChart() {
-  // Draw chart
-}
-
-function syncResultsFromMengyin() {
-  // Sync results
-}
-
-function applyTranslations() {
-  // Apply translations
-}
-
-function formatWhen() {
-  // Format when
-  return "";
-}
-
-function matchStatus() {
-  // Match status
-  return "UPCOMING";
-}
-
-function copyText(text) {
-  return navigator.clipboard.writeText(text);
-}
-
-function getDailyPredictionLimit() {
-  return 5;
-}
-
-function getTodayPredictionCount() {
-  return 0;
-}
-
-function bumpTodayPredictionCount() {
-  // Bump count
-}
-
-function getWctWholeBalance() {
-  return 0n;
-}
-
-function normAddress(addr) {
-  return addr ? addr.toLowerCase() : null;
 }
 
 function boot() {

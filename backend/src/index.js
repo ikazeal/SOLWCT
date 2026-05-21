@@ -1002,7 +1002,7 @@ async function countTodayPredictions(address) {
     const addr = normAddress(address);
     const list = mem.predictionsByAddr.get(addr) || [];
     const d = new Date();
-    d.setHours(0, 0, 0, 0);
+    d.setUTCHours(0, 0, 0, 0);
     const start = d.getTime();
     const end = start + 24 * 60 * 60 * 1000;
     let c = 0;
@@ -1017,8 +1017,8 @@ async function countTodayPredictions(address) {
       select count(*)::int as c
       from public.predictions
       where address = $1
-        and created_at >= date_trunc('day', now())
-        and created_at < date_trunc('day', now()) + interval '1 day'
+        and created_at >= date_trunc('day', now() at time zone 'utc')
+        and created_at < date_trunc('day', now() at time zone 'utc') + interval '1 day'
     `,
     [address],
   );
