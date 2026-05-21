@@ -817,70 +817,8 @@ function changeFromHistoryMs(history, nowMs, lookbackMs) {
 }
 
 async function fetchOnchainTokenSnapshot(contract) {
-  const addr = String(contract || "").trim();
-  if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) return null;
-
-  const [pairWbnb, pairUsdt, pairBnbUsdt] = await Promise.all([
-    rpcGetPair(addr, WBNB_ADDRESS),
-    rpcGetPair(addr, USDT_ADDRESS),
-    rpcGetPair(WBNB_ADDRESS, USDT_ADDRESS),
-  ]);
-  const zero = "0x0000000000000000000000000000000000000000";
-  if (pairWbnb === zero && pairUsdt === zero) return null;
-
-  const [metaName, metaSymbol, tokenDec, supplyRaw] = await Promise.all([rpcTokenName(addr), rpcTokenSymbol(addr), rpcTokenDecimals(addr), rpcTokenTotalSupply(addr)]);
-  const supply = ratioBigIntToNumber(supplyRaw, pow10n(tokenDec), 6);
-
-  let bnbUsd = null;
-  if (pairBnbUsdt !== zero) {
-    const bnbUsdInfo = await rpcV2PriceBaseInQuote(pairBnbUsdt, WBNB_ADDRESS, USDT_ADDRESS);
-    bnbUsd = bnbUsdInfo.price;
-  }
-
-  let pair = pairWbnb;
-  let quote = WBNB_ADDRESS;
-  if (pair === zero) {
-    pair = pairUsdt;
-    quote = USDT_ADDRESS;
-  }
-
-  const priceInfo = await rpcV2PriceBaseInQuote(pair, addr, quote);
-  const priceInQuote = priceInfo.price;
-
-  let priceUsd = null;
-  let priceNative = null;
-  let liquidityUsd = null;
-
-  if (quote === WBNB_ADDRESS) {
-    priceNative = priceInQuote;
-    if (typeof priceNative === "number" && Number.isFinite(priceNative) && typeof bnbUsd === "number" && Number.isFinite(bnbUsd)) priceUsd = priceNative * bnbUsd;
-    const reserveWbnb = ratioBigIntToNumber(priceInfo.reserveQuote, pow10n(18), 6);
-    if (typeof reserveWbnb === "number" && Number.isFinite(reserveWbnb) && typeof bnbUsd === "number" && Number.isFinite(bnbUsd)) liquidityUsd = reserveWbnb * bnbUsd * 2;
-  } else {
-    priceUsd = priceInQuote;
-    if (typeof priceUsd === "number" && Number.isFinite(priceUsd) && typeof bnbUsd === "number" && Number.isFinite(bnbUsd) && bnbUsd > 0) priceNative = priceUsd / bnbUsd;
-    const reserveUsdt = ratioBigIntToNumber(priceInfo.reserveQuote, pow10n(18), 6);
-    if (typeof reserveUsdt === "number" && Number.isFinite(reserveUsdt)) liquidityUsd = reserveUsdt * 2;
-  }
-
-  const marketCap = typeof priceUsd === "number" && Number.isFinite(priceUsd) && typeof supply === "number" && Number.isFinite(supply) ? priceUsd * supply : null;
-
-  return {
-    source: "rpc",
-    url: "",
-    pairAddress: pair,
-    name: metaName || "",
-    symbol: metaSymbol || "",
-    priceUsd: typeof priceUsd === "number" && Number.isFinite(priceUsd) ? priceUsd : null,
-    priceNative: typeof priceNative === "number" && Number.isFinite(priceNative) ? priceNative : null,
-    liquidityUsd: typeof liquidityUsd === "number" && Number.isFinite(liquidityUsd) ? liquidityUsd : null,
-    volume24hUsd: null,
-    marketCap: typeof marketCap === "number" && Number.isFinite(marketCap) ? marketCap : null,
-    totalSupply: typeof supply === "number" && Number.isFinite(supply) ? supply : null,
-    change1h: null,
-    change6h: null,
-    change24h: null,
-  };
+  // BSC logic removed, now handled by fetchDexScreenerTokenSnapshot and backend
+  return null;
 }
 
 function pickChangeForRange(snapshot, range) {
