@@ -151,13 +151,13 @@ async function connectWallet(type = "phantom") {
   try {
     console.log(`Connecting to Solana wallet (${type})...`);
     
-    // 如果已经授权，直接使用已有的公钥
-    if (provider.isConnected && provider.publicKey) {
-      console.log("Wallet already connected.");
-    } else {
-      // 弹出授权窗口
-      await provider.connect();
+    // 强制先断开旧连接，确保弹出钱包选择
+    if (provider.isConnected) {
+      try { await provider.disconnect(); } catch(e) {}
     }
+
+    // 重新连接，设置 onlyIfTrusted: false 强制弹出授权窗口
+    await provider.connect({ onlyIfTrusted: false });
 
     const pk = provider.publicKey;
     if (!pk) throw new Error("No public key after connect()");
@@ -212,6 +212,7 @@ function utf8ToHex(str) {
 }
 
 const TEAM_MAP = {
+  "待定": "TBD",
   "墨西哥": "MEX", "南非": "RSA", "韩国": "KOR", "捷克": "CZE", "加拿大": "CAN", "波黑": "BIH", "美国": "USA", "巴拉圭": "PAR",
   "卡塔尔": "QAT", "瑞士": "SUI", "巴西": "BRA", "摩洛哥": "MAR", "海地": "HAI", "苏格兰": "SCO", "澳大利亚": "AUS", "土耳其": "TUR",
   "德国": "GER", "库拉索": "CUW", "荷兰": "NED", "日本": "JPN", "科特迪瓦": "CIV", "厄瓜多尔": "ECU", "瑞典": "SWE", "突尼斯": "TUN",
@@ -349,7 +350,7 @@ const I18N = {
     "toast.backendBetFailed": "Submit failed. Please try again.",
     "toast.networkAddRejected": "Network add rejected.",
     "toast.networkSwitchRejected": "Network switch rejected.",
-    "toast.switchToBsc": "Switch to BNB Chain for full functionality.",
+    "toast.switchToBsc": "Please ensure you are on Solana Mainnet.",
     "toast.contractCopied": "Contract address copied.",
     "toast.copyFailed": "Copy failed.",
     "toast.connectToSubmit": "Connect wallet to submit predictions.",
@@ -501,44 +502,6 @@ function toast(message, { timeout = 2600 } = {}) {
   }, timeout);
 }
 
-function parseFlapTokenSnapshotFromText(text) {
-  const cleaned = String(text || "")
-    .replace(/\r/g, "")
-    .replace(/[ \t]+\n/g, "\n")
-    .trim();
-
-  const firstLine = cleaned.split("\n")[0] || "";
-  const titleMatch = firstLine.match(/^(.+?)\s*\(\s*\$?([^)]+)\s*\)\s*$/);
-  const name = titleMatch ? titleMatch[1].trim() : "";
-  const symbol = titleMatch ? titleMatch[2].trim() : "";
-
-  const mcMatch = cleaned.match(/Market Cap\s*\n\s*\$([0-9.,]+)\s*([KMB])?/i);
-  const mcText = mcMatch ? `$${mcMatch[1].replace(/,/g, "")}${mcMatch[2] || ""}` : "";
-
-  if (!mcText) return null;
-  const raw = `${mcMatch ? `${mcMatch[1].replace(/,/g, "")}${mcMatch[2] || ""}` : ""}`.trim();
-  const m2 = raw.match(/^([0-9]+(?:\.[0-9]+)?)\s*([KMB])?$/i);
-  let marketCap = null;
-  if (m2) {
-    const n = Number(m2[1]);
-    const suf = String(m2[2] || "").toUpperCase();
-    const mul = suf === "B" ? 1e9 : suf === "M" ? 1e6 : suf === "K" ? 1e3 : 1;
-    const v = n * mul;
-    if (Number.isFinite(v) && v > 0) marketCap = v;
-  }
-  return { name, symbol, mcText, marketCap };
-}
-
-async function fetchFlapTokenSnapshot(contract) {
-  const addr = String(contract || "").trim();
-  if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) return null;
-  const url = `https://flap.sh/bnb/${addr}`;
-  const html = await fetchTextWithCorsFallback(url);
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  const text = doc?.body?.innerText || html;
-  return parseFlapTokenSnapshotFromText(text);
-}
-
 function pickDexPair(pairs) {
   const list = Array.isArray(pairs) ? pairs : [];
   return list
@@ -684,11 +647,6 @@ function changeFromHistoryMs(history, nowMs, lookbackMs) {
   const last = h.length ? Number(h[h.length - 1]?.priceUsd) : null;
   if (!Number.isFinite(last) || !(last > 0)) return null;
   return ((last - best) / best) * 100;
-}
-
-async function fetchOnchainTokenSnapshot(contract) {
-  // BSC logic removed, now handled by fetchDexScreenerTokenSnapshot and backend
-  return null;
 }
 
 function pickChangeForRange(snapshot, range) {
@@ -1809,7 +1767,7 @@ async function fetchWalletBalances() {
   state.wallet.lastBalanceSyncMs = now;
 
   const base = getBackendBaseUrl();
-  const mint = getWctMint();
+  const mint = getMintAddress();
   
   console.log("Fetching balances for:", addr);
 
@@ -1934,69 +1892,6 @@ async function tryRestoreWalletSession() {
   updateWalletUI();
   fetchWalletBalances();
   if (state.backend.enabled) backendSyncAll({ force: true });
-}
-
-async function connectWallet() {
-  const type = localStorage.getItem("wct_wallet_type") || "phantom";
-  const provider = getSolProvider(type);
-  
-  if (!provider) {
-    toast(t("toast.noWallet"));
-    return;
-  }
-
-  try {
-    console.log("Attempting robust connection...");
-    
-    // 强制先断开旧连接，确保弹出钱包选择
-    if (provider.isConnected) {
-      try { await provider.disconnect(); } catch(e) {}
-    }
-
-    // 重新连接，设置 onlyIfTrusted: false 强制弹出授权窗口
-    await provider.connect({ onlyIfTrusted: false });
-
-    const connectedPk = provider.publicKey;
-    
-    if (!connectedPk) {
-      throw new Error("Connected but no public key found");
-    }
-
-    const addr = String(connectedPk.toString());
-    console.log("Connection verified for address:", addr);
-
-    state.wallet.address = addr;
-    state.wallet.connected = true;
-    state.wallet.manualConnected = true;
-    state.wallet.walletMenuOpen = false;
-
-    // 立即更新 UI，让用户看到“已连接”
-    updateWalletUI();
-    toast(t("toast.walletConnected"));
-
-    // 后续数据同步异步执行，不影响连接状态展示
-    Promise.resolve().then(async () => {
-      initBackendState();
-      hydrateRewardsFromAddress();
-      await fetchWalletBalances().catch(() => {});
-      if (state.backend.enabled) {
-        backendSyncAll({ force: true }).catch(() => {});
-      }
-    });
-
-  } catch (err) {
-    console.error("Critical connection failure:", err);
-    
-    const errMsg = String(err?.message || err || "").toLowerCase();
-    if (errMsg.includes("user rejected") || errMsg.includes("denied")) {
-      toast(t("toast.walletRejected"));
-    } else {
-      // 提示更详细的连接失败
-      toast(t("toast.walletFailed"));
-      // 额外弹窗提示用户可能的原因
-      console.warn("Hint: Ensure your wallet is unlocked and on Mainnet.");
-    }
-  }
 }
 
 function disconnectWallet() {

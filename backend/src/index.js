@@ -16,7 +16,7 @@ const RAW_DATABASE_URL = String(process.env.DATABASE_URL || process.env.POSTGRES
 const DATABASE_SSL = String(process.env.DATABASE_SSL || "true").toLowerCase() !== "false";
 
 const SOL_RPC_URL = String(process.env.SOL_RPC_URL || "https://api.mainnet-beta.solana.com");
-const SOL_WCT_MINT = String(process.env.SOL_WCT_MINT || "").trim();
+const SOL_WCT_MINT = String(process.env.SOL_WCT_MINT || "GHL5jPw2LCsDC4NJoQy2HcyYGRbd3bZwMoes9dvDpump").trim();
 
 const BET_CLOSE_BEFORE_MS = 5 * 60 * 1000;
 const NONCE_TTL_MS = 5 * 60 * 1000;
